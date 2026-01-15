@@ -7,7 +7,7 @@ on:
 env:
     FORCE_COLOR: true
     GITHUB_TOKEN: ${{ secrets.ETOKEN }}
-    REPO: Equicord/Equibored
+    REPO: MushZI/MushZicord 
     USERNAME: GitHub-Actions
 
 permissions:
@@ -70,6 +70,9 @@ jobs:
             - name: Upload Equicord Stable
               run: |
                   gh release upload latest --clobber dist/release/*
+              env:
+                  # Ajout indispensable pour corriger l'erreur 4
+                  GH_TOKEN: ${{ github.token }} 
 
             - name: Upload Plugin JSONs to Equibored repo
               run: |
