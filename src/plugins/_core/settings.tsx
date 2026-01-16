@@ -104,6 +104,18 @@ const settings = definePluginSettings({
     }
 });
 
+export const settingsSectionMap: [string, string][] = [
+    ["EquicordSettings", "equicord_main_panel"],
+    ["EquicordPlugins", "equicord_plugins_panel"],
+    ["EquicordThemes", "equicord_themes_panel"],
+    ["EquicordUpdater", "equicord_updater_panel"],
+    ["EquicordChangelog", "equicord_changelog_panel"],
+    ["EquicordCloud", "equicord_cloud_panel"],
+    ["EquicordBackupAndRestore", "equicord_backup_restore_panel"],
+    ["EquicordPatchHelper", "equicord_patch_helper_panel"],
+    ["EquibopSettings", "equicord_equibop_settings_panel"],
+];
+
 export default definePlugin({
     name: "Settings",
     description: "Adds Settings UI and debug info",
@@ -202,78 +214,65 @@ export default definePlugin({
     },
 
     getSettingsSectionMappings() {
-        return [
-            ["MushcordSettings", "mushcord_main_panel"],
-            ["MushcordPlugins", "mushcord_plugins_panel"],
-            ["MushcordThemes", "mushcord_themes_panel"],
-            ["MushcordUpdater", "mushcord_updater_panel"],
-            ["MushcordChangelog", "mushcord_changelog_panel"],
-            ["MushcordCloud", "mushcord_cloud_panel"],
-            ["MushcordBackupAndRestore", "mushcord_backup_restore_panel"],
-            ["MushcordPatchHelper", "mushcord_patch_helper_panel"],
-            ["EquibopSettings", "mushcord_equibop_settings_panel"],
-            ["MushcordDiscordIcons", "mushcord_icon_viewer"],
-            ["MushcordThemeLibrary", "mushcord_theme_library"],
-            ["MushcordIRememberYou", "mushcord_i_remember_you"],
-        ];
+        return settingsSectionMap;
     },
 
     buildLayout(originalLayoutBuilder: SettingsLayoutBuilder) {
         const layout = originalLayoutBuilder.buildLayout();
         if (originalLayoutBuilder.key !== "$Root") return layout;
         if (!Array.isArray(layout)) return layout;
-        if (layout.some(s => s?.key === "mushcord_section")) return layout;
+        if (layout.some(s => s?.key === "equicord_section")) return layout;
 
         const { buildEntry } = this;
 
-        const mushcordEntries: SettingsLayoutNode[] = [
+        const equicordEntries: SettingsLayoutNode[] = [
             buildEntry({
-                key: "mushcord_main",
+                key: "equicord_main",
                 title: "Mushcord",
                 panelTitle: "Mushcord Settings",
                 Component: VencordTab,
                 Icon: MainSettingsIcon
             }),
             buildEntry({
-                key: "mushcord_plugins",
+                key: "equicord_plugins",
                 title: "Plugins",
                 Component: PluginsTab,
                 Icon: PluginsIcon
             }),
             buildEntry({
-                key: "mushcord_themes",
+                key: "equicord_themes",
                 title: "Themes",
                 Component: ThemesTab,
                 Icon: PaintbrushIcon
             }),
             !IS_UPDATER_DISABLED && UpdaterTab && buildEntry({
-                key: "mushcord_updater",
+                key: "equicord_updater",
                 title: "Updater",
                 panelTitle: "Mushcord Updater",
                 Component: UpdaterTab,
                 Icon: UpdaterIcon
             }),
             buildEntry({
-                key: "mushcord_changelog",
+                key: "equicord_changelog",
                 title: "Changelog",
                 Component: ChangelogTab,
                 Icon: LogIcon,
             }),
             buildEntry({
-                key: "mushcord_cloud",
+                key: "equicord_cloud",
                 title: "Cloud",
                 panelTitle: "Mushcord Cloud",
                 Component: CloudTab,
                 Icon: CloudIcon
             }),
             buildEntry({
-                key: "mushcord_backup_restore",
+                key: "equicord_backup_restore",
                 title: "Backup & Restore",
                 Component: BackupAndRestoreTab,
                 Icon: BackupRestoreIcon
             }),
             IS_DEV && PatchHelperTab && buildEntry({
-                key: "mushcord_patch_helper",
+                key: "equicord_patch_helper",
                 title: "Patch Helper",
                 Component: PatchHelperTab,
                 Icon: PatchHelperIcon
@@ -281,11 +280,11 @@ export default definePlugin({
             ...this.customEntries.map(buildEntry)
         ].filter(isTruthy);
 
-        const mushcordSection: SettingsLayoutNode = {
-            key: "mushcord_section",
+        const equicordSection: SettingsLayoutNode = {
+            key: "equicord_section",
             type: LayoutTypes.SECTION,
             useTitle: () => "Mushcord Settings",
-            buildLayout: () => mushcordEntries
+            buildLayout: () => equicordEntries
         };
 
         const { settingsLocation } = settings.store;
@@ -308,7 +307,7 @@ export default definePlugin({
             idx += 1;
         }
 
-        layout.splice(idx, 0, mushcordSection);
+        layout.splice(idx, 0, equicordSection);
 
         return layout;
     },
@@ -324,55 +323,55 @@ export default definePlugin({
                 className: "vc-settings-header",
             },
             {
-                section: "MushcordSettings",
+                section: "EquicordSettings",
                 label: "Mushcord",
                 element: VencordTab,
                 className: "vc-settings",
             },
             {
-                section: "MushcordPlugins",
+                section: "EquicordPlugins",
                 label: "Plugins",
                 searchableTitles: ["Plugins"],
                 element: PluginsTab,
                 className: "vc-plugins",
             },
             {
-                section: "MushcordThemes",
+                section: "EquicordThemes",
                 label: "Themes",
                 searchableTitles: ["Themes"],
                 element: ThemesTab,
                 className: "vc-themes",
             },
             !IS_UPDATER_DISABLED && {
-                section: "MushcordUpdater",
+                section: "EquicordUpdater",
                 label: "Updater",
                 searchableTitles: ["Updater"],
                 element: UpdaterTab,
                 className: "vc-updater",
             },
             {
-                section: "MushcordChangelog",
+                section: "EquicordChangelog",
                 label: "Changelog",
                 searchableTitles: ["Changelog"],
                 element: ChangelogTab,
                 className: "vc-changelog",
             },
             {
-                section: "MushcordCloud",
+                section: "EquicordCloud",
                 label: "Cloud",
                 searchableTitles: ["Cloud"],
                 element: CloudTab,
                 className: "vc-cloud",
             },
             {
-                section: "MushcordBackupAndRestore",
+                section: "EquicordBackupAndRestore",
                 label: "Backup & Restore",
                 searchableTitles: ["Backup & Restore"],
                 element: BackupAndRestoreTab,
                 className: "vc-backup-restore",
             },
             IS_DEV && {
-                section: "MushcordPatchHelper",
+                section: "EquicordPatchHelper",
                 label: "Patch Helper",
                 searchableTitles: ["Patch Helper"],
                 element: PatchHelperTab,
@@ -461,7 +460,6 @@ export default definePlugin({
         if (IS_DEV) version = "Dev";
         if (IS_WEB) version = "Web";
         if (IS_VESKTOP) version = `Vesktop v${VesktopNative.app.getVersion()}`;
-        if (IS_EQUIBOP) version = `Mushbop v${VesktopNative.app.getVersion()}`;
         if (IS_STANDALONE) version = "Standalone";
 
         return support && version ? ` (${version})` : version;
