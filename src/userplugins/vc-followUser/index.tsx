@@ -8,10 +8,10 @@ import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import { definePluginSettings, useSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
-import { LazyComponent } from "@utils/lazyReact";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
-import { filters, find, findByPropsLazy, findStoreLazy } from "@webpack";
+import type { Channel, User } from "@vencord/discord-types";
+import { findByPropsLazy, findComponentByCodeLazy, findStoreLazy } from "@webpack";
 import {
     ChannelStore,
     Menu,
@@ -22,13 +22,9 @@ import {
     Toasts,
     UserStore
 } from "@webpack/common";
-import type { Channel, User } from "discord-types/general";
 import type { PropsWithChildren, SVGProps } from "react";
 
-const HeaderBarIcon = LazyComponent(() => {
-    const filter = filters.byCode(".HEADER_BAR_BADGE");
-    return find(m => m.Icon && filter(m.Icon)).Icon;
-});
+const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '.iconBadge,"top"');
 
 interface BaseIconProps extends IconProps {
     viewBox: string;
@@ -291,7 +287,7 @@ export default definePlugin({
 
     patches: [
         {
-            find: "toolbar:function",
+            find: ".controlButtonWrapper,",
             replacement: {
                 match: /(function \i\(\i\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
                 replace: "$1$self.addIconToToolBar(arguments[0]);$2"
@@ -370,7 +366,7 @@ export default definePlugin({
 
     addIconToToolBar(e: { toolbar: React.ReactNode[] | React.ReactNode; }) {
         if (Array.isArray(e.toolbar)) {
-            return e.toolbar.push(
+            return e.toolbar.unshift(
                 <ErrorBoundary noop={true} key="follow-indicator">
                     <this.FollowIndicator/>
                 </ErrorBoundary>
