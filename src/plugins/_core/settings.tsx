@@ -92,7 +92,7 @@ interface SettingsLayoutBuilder {
 const settings = definePluginSettings({
     settingsLocation: {
         type: OptionType.SELECT,
-        description: "Where to put the Mushcord settings section",
+        description: "Where to put the Equicord settings section",
         options: [
             { label: "At the very top", value: "top" },
             { label: "Above the Nitro section", value: "aboveNitro", default: true },
@@ -126,21 +126,21 @@ export default definePlugin({
 
     patches: [
         {
-            find: ".versionHash",
+            find: "#{intl::COPY_VERSION}",
             replacement: [
                 {
                     match: /\.RELEASE_CHANNEL/,
                     replace: "$&.replace(/^./, c => c.toUpperCase())"
                 },
                 {
-                    match: /\.compactInfo.+?(?=null!=(\i)&&(.{0,20}\i\.Text.{0,200}?,children:).{0,15}?("span"),({className:\i\.versionHash,children:\["Build Override: ",\1\.id\]\})\)\}\))/,
+                    match: /"text-xxs\/normal".{0,300}?(?=null!=(\i)&&(.{0,20}\i\.Text.{0,200}?,children:).{0,15}?("span"),({className:\i\.\i,children:\["Build Override: ",\1\.id\]\})\)\}\))/,
                     replace: (m, _buildOverride, makeRow, component, props) => {
                         props = props.replace(/children:\[.+\]/, "");
                         return `${m},$self.makeInfoElements(${component},${props}).map(e=>${makeRow}e})),`;
                     }
                 },
                 {
-                    match: /\.info.+?\[\(0,\i\.jsxs?\)\((.{1,10}),(\{[^{}}]+\{.{0,20}.versionHash,.+?\})\)," "/,
+                    match: /"text-xs\/normal".{0,300}?\[\(0,\i\.jsxs?\)\((.{1,10}),(\{[^{}}]+\{.{0,20}className:\i.\i,.+?\})\)," "/,
                     replace: (m, component, props) => {
                         props = props.replace(/children:\[.+\]/, "");
                         return `${m},$self.makeInfoElements(${component},${props})`;
@@ -170,8 +170,9 @@ export default definePlugin({
         {
             find: "#{intl::USER_SETTINGS_ACTIONS_MENU_LABEL}",
             replacement: {
-                match: /(?<=function\((\i),(\i),\i\)\{)(?=let \i=Object\.values\(\i\.\i\).+?(\(0,\i\.openUserSettings\))\()/,
-                replace: (_, settingsPanel, section, openUserSettings) => `${openUserSettings}(${settingsPanel},{section:${section}});return;`
+                // Skip the check Discord performs to make sure the section being selected in the user settings context menu is valid
+                match: /null!=\(\i=Object.values\(\i\.\i\).{0,50}?&&(?=\(0,\i\.openUserSettings\)\(\i,\{section:\i)/,
+                replace: ""
             }
         },
         {
@@ -235,7 +236,7 @@ export default definePlugin({
             }),
             buildEntry({
                 key: "equicord_plugins",
-                title: "Plugins",
+                title: "MushPlugins",
                 Component: PluginsTab,
                 Icon: PluginsIcon
             }),
@@ -248,7 +249,7 @@ export default definePlugin({
             !IS_UPDATER_DISABLED && UpdaterTab && buildEntry({
                 key: "equicord_updater",
                 title: "Updater",
-                panelTitle: "Mushcord Updater",
+                panelTitle: "Equicord Updater",
                 Component: UpdaterTab,
                 Icon: UpdaterIcon
             }),
@@ -261,7 +262,7 @@ export default definePlugin({
             buildEntry({
                 key: "equicord_cloud",
                 title: "Cloud",
-                panelTitle: "Mushcord Cloud",
+                panelTitle: "Equicord Cloud",
                 Component: CloudTab,
                 Icon: CloudIcon
             }),
@@ -319,12 +320,12 @@ export default definePlugin({
         return [
             {
                 section: SectionTypes.HEADER,
-                label: "Mushcord",
+                label: "Equicord",
                 className: "vc-settings-header",
             },
             {
                 section: "EquicordSettings",
-                label: "Mushcord",
+                label: "Equicord",
                 element: VencordTab,
                 className: "vc-settings",
             },
@@ -457,9 +458,10 @@ export default definePlugin({
     getVersionInfo(support = true) {
         let version = "";
 
-        if (IS_DEV) version = "Dev";
+        if (IS_DEV) version = "Dev Build";
         if (IS_WEB) version = "Web";
         if (IS_VESKTOP) version = `Vesktop v${VesktopNative.app.getVersion()}`;
+        if (IS_EQUIBOP) version = `Equibop v${VesktopNative.app.getVersion()}`;
         if (IS_STANDALONE) version = "Standalone";
 
         return support && version ? ` (${version})` : version;
@@ -468,7 +470,7 @@ export default definePlugin({
     getInfoRows() {
         const { electronVersion, chromiumVersion, getVersionInfo } = this;
 
-        const rows = [`Mushcord ${gitHashShort}${getVersionInfo()}`];
+        const rows = [`Equicord ${gitHashShort}${getVersionInfo()}`];
 
         if (electronVersion) rows.push(`Electron ${electronVersion}`);
         if (chromiumVersion) rows.push(`Chromium ${chromiumVersion}`);
