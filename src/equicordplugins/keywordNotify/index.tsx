@@ -8,10 +8,9 @@ import "./style.css";
 
 import { DataStore } from "@api/index";
 import { definePluginSettings } from "@api/Settings";
-import { Button, TextButton } from "@components/Button";
 import { Flex } from "@components/Flex";
 import { FormSwitch } from "@components/FormSwitch";
-import { Heading } from "@components/Heading";
+import { Heading, HeadingTertiary } from "@components/Heading";
 import { DeleteIcon } from "@components/Icons";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
@@ -20,8 +19,8 @@ import { classes } from "@utils/misc";
 import { useForceUpdater } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
 import { Message } from "@vencord/discord-types";
-import { findByCodeLazy, findCssClassesLazy } from "@webpack";
-import { ChannelStore, FluxDispatcher, Select, SelectedChannelStore, TabBar, TextInput, Tooltip, UserStore, useState } from "@webpack/common";
+import { findByCodeLazy, findByPropsLazy } from "@webpack";
+import { Button, ChannelStore, FluxDispatcher, Select, SelectedChannelStore, TabBar, TextInput, Tooltip, UserStore, useState } from "@webpack/common";
 import type { JSX, PropsWithChildren } from "react";
 
 type IconProps = JSX.IntrinsicElements["svg"];
@@ -31,8 +30,9 @@ let keywordEntries: Array<KeywordEntry> = [];
 let keywordLog: Array<any> = [];
 let interceptor: (e: any) => void;
 
-const recentMentionsPopoutClass = findCssClassesLazy("recentMentionsPopout", "scroller");
-const tabClass = findCssClassesLazy("inboxTitle", "tab");
+const recentMentionsPopoutClass = findByPropsLazy("recentMentionsPopout");
+const tabClass = findByPropsLazy("inboxTitle", "tab");
+const buttonClass = findByPropsLazy("size36");
 const Popout = findByCodeLazy("getProTip", "canCloseAllMessages:");
 const createMessageRecord = findByCodeLazy(".createFromServer(", ".isBlockedForMessage", "messageReference:");
 const KEYWORD_ENTRIES_KEY = "KeywordNotify_keywordEntries";
@@ -77,20 +77,20 @@ function highlightKeywords(str: string, entries: Array<KeywordEntry>) {
         return [str];
     }
 
-    const matches = regexes.map(r => str.match(r)).flat().filter(e => e !== null) as Array<string>;
+    const matches = regexes.map(r => str.match(r)).flat().filter(e => e != null) as Array<string>;
     if (matches.length === 0) {
         return [str];
     }
 
     const idx = str.indexOf(matches[0]);
 
-    return (
+    return [
         <>
-            <span>{str.substring(0, idx)}</span>
-            <span className="highlight">{matches[0]}</span>
+            <span>{str.substring(0, idx)}</span>,
+            <span className="highlight">{matches[0]}</span>,
             <span>{str.substring(idx + matches[0].length)}</span>
         </>
-    );
+    ];
 }
 
 function Collapsible({ title, children }) {
@@ -98,8 +98,10 @@ function Collapsible({ title, children }) {
 
     return (
         <div>
-            <TextButton
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
+                look={Button.Looks.FILLED}
+                size={Button.Sizes.SMALL}
                 className={cl("collapsible")}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                     <div style={{
@@ -107,9 +109,9 @@ function Collapsible({ title, children }) {
                         color: "var(--text-muted)",
                         paddingRight: "5px"
                     }}>{isOpen ? "▼" : "▶"}</div>
-                    <Heading tag="h4">{title}</Heading>
+                    <HeadingTertiary>{title}</HeadingTertiary>
                 </div>
-            </TextButton>
+            </Button>
             {isOpen && children}
         </div>
     );
@@ -127,27 +129,29 @@ function ListedIds({ listIds, setListIds }) {
 
     const elements = values.map((currentValue: string, index: number) => {
         return (
-            <Flex key={index} flexDirection="row" style={{ marginBottom: "5px" }}>
-                <div style={{ flexGrow: 1 }}>
-                    <TextInput
-                        placeholder="ID"
-                        spellCheck={false}
-                        value={currentValue}
-                        onChange={e => onChange(e, index)}
-                    />
-                </div>
-                <Button
-                    onClick={() => {
-                        values.splice(index, 1);
-                        setListIds(values);
-                        update();
-                    }}
-                    variant="none"
-                    size="iconOnly"
-                    className={cl("delete")}>
-                    <DeleteIcon />
-                </Button>
-            </Flex>
+            <>
+                <Flex flexDirection="row" style={{ marginBottom: "5px" }}>
+                    <div style={{ flexGrow: 1 }}>
+                        <TextInput
+                            placeholder="ID"
+                            spellCheck={false}
+                            value={currentValue}
+                            onChange={e => onChange(e, index)}
+                        />
+                    </div>
+                    <Button
+                        onClick={() => {
+                            values.splice(index, 1);
+                            setListIds(values);
+                            update();
+                        }}
+                        look={Button.Looks.FILLED}
+                        size={Button.Sizes.SMALL}
+                        className={cl("delete")}>
+                        <DeleteIcon />
+                    </Button>
+                </Flex>
+            </>
         );
     });
 
@@ -217,21 +221,21 @@ function KeywordEntries() {
                         </div>
                         <Button
                             onClick={() => removeKeywordEntry(i, update)}
-                            variant="none"
-                            size="iconOnly"
+                            look={Button.Looks.FILLED}
+                            size={Button.Sizes.SMALL}
                             className={cl("delete")}>
                             <DeleteIcon />
                         </Button>
                     </Flex>
                     <FormSwitch
                         title="Ignore Case"
-                        className={cl("ignoreCaseSwitch")}
+                        className={cl("switch")}
                         value={values[i].ignoreCase}
                         onChange={() => {
                             setIgnoreCase(i, !values[i].ignoreCase);
                         }}
                     />
-                    <Heading tag="h5">Whitelist/Blacklist</Heading>
+                    <Heading>Whitelist/Blacklist</Heading>
                     <Flex flexDirection="row">
                         <div style={{ flexGrow: 1 }}>
                             <ListedIds listIds={values[i].listIds} setListIds={e => setListIds(i, e)} />
@@ -370,7 +374,6 @@ export default definePlugin({
         interceptor = (e: any) => {
             return this.modify(e);
         };
-
         FluxDispatcher.addInterceptor(interceptor);
     },
 
@@ -458,15 +461,6 @@ export default definePlugin({
             DataStore.set(KEYWORD_LOG_KEY, log.map(e => JSON.stringify(e)));
         });
     },
-    discardMessage(id: string) {
-        DataStore.get(KEYWORD_LOG_KEY).then((log: string[]) => {
-            let parsed_logs: Message[] = log ? log.map(e => JSON.parse(e)) : [];
-
-            parsed_logs = parsed_logs.filter(msg => msg.id !== id);
-
-            DataStore.set(KEYWORD_LOG_KEY, parsed_logs.map(e => JSON.stringify(e)));
-        });
-    },
     addToLog(m: Message) {
         if (m == null || keywordLog.some(e => e.id === m.id))
             return;
@@ -475,7 +469,6 @@ export default definePlugin({
         try {
             messageRecord = createMessageRecord(m);
         } catch (err) {
-            console.error(err);
             return;
         }
 
@@ -496,7 +489,7 @@ export default definePlugin({
 
     keywordTabBar() {
         return (
-            <TabBar.Item className={classes(tabClass.tab)} id={8}>
+            <TabBar.Item className={classes(tabClass.tab, tabClass.expanded)} id={8}>
                 Keywords
             </TabBar.Item>
         );
@@ -506,9 +499,8 @@ export default definePlugin({
         return (
             <Tooltip text="Clear All">
                 {({ onMouseLeave, onMouseEnter }) => (
-                    <Button
-                        variant="secondary"
-                        size="iconOnly"
+                    <div
+                        className={classes(tabClass.controlButton, buttonClass.button, buttonClass.tertiary, buttonClass.size32)}
                         onMouseLeave={onMouseLeave}
                         onMouseEnter={onMouseEnter}
                         onClick={() => {
@@ -517,7 +509,7 @@ export default definePlugin({
                             this.onUpdate();
                         }}>
                         <DoubleCheckmarkIcon />
-                    </Button>
+                    </div>
                 )}
             </Tooltip>
         );
@@ -552,16 +544,12 @@ export default definePlugin({
             <>
                 <Popout
                     className={classes(recentMentionsPopoutClass.recentMentionsPopout)}
-                    scrollerClassName={classes(recentMentionsPopoutClass.scroller)}
                     renderHeader={() => null}
                     renderMessage={messageRender}
                     channel={channel}
                     onJump={onJump}
                     onFetch={() => null}
-                    onCloseMessage={(id: string) => {
-                        this.deleteKeyword(id);
-                        this.discardMessage(id);
-                    }}
+                    onCloseMessage={this.deleteKeyword}
                     loadMore={() => null}
                     messages={tempLogs}
                     renderEmptyState={() => null}

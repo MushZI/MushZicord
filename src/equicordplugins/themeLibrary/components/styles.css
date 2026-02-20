@@ -28,15 +28,8 @@
     object-fit: cover;
 }
 
-.vce-theme-text-title {
+.vce-theme-text {
     padding: 0.5rem;
-    padding-bottom: 0;
-}
-
-.vce-theme-text-description {
-    padding: 0.5rem;
-    padding-top: 0;
-    padding-bottom: 0.25rem;
 }
 
 .vce-theme-info-tag {

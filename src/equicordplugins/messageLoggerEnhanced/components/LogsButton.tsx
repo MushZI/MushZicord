@@ -17,7 +17,6 @@
 */
 
 import { HeaderBarButton } from "@api/HeaderBar";
-import { cl } from "@equicordplugins/messageLoggerEnhanced/index";
 import { findComponentByCodeLazy } from "@webpack";
 
 import { openLogModal } from "./LogsModal";
@@ -27,7 +26,7 @@ const Icon = findComponentByCodeLazy("0-1.27-.97l-2.5.7a3");
 export function OpenLogsButton() {
     return (
         <HeaderBarButton
-            className={cl("toolbox-btn")}
+            className="vc-log-toolbox-btn"
             onClick={() => openLogModal()}
             tooltip={"Open Logs"}
             icon={Icon}

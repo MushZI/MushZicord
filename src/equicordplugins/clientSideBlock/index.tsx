@@ -152,7 +152,7 @@ export default definePlugin({
     patches: [
         // message
         {
-            find: ".NITRO_NOTIFICATION,[",
+            find: ".messageListItem",
             replacement: {
                 match: /renderContentOnly:\i}=\i;/,
                 replace: "$&if($self.shouldHideUser(arguments[0].message.author.id, arguments[0].message.channel_id)) return null; "
@@ -217,7 +217,7 @@ export default definePlugin({
         {
             find: "getFriendIDs(){",
             replacement: {
-                match: /\?\?\[\]\)\),\i\.friends/,
+                match: /return \i\.friends/,
                 replace: "$&.filter(id => !$self.shouldHideUser(id))"
             }
         },

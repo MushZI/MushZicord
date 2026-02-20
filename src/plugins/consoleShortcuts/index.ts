@@ -57,14 +57,14 @@ const define: typeof Object.defineProperty =
     };
 
 function makeShortcuts() {
-    function newFindWrapper(filterFactory: (...props: any[]) => Webpack.FilterFn, topLevelOnly = false) {
+    function newFindWrapper(filterFactory: (...props: any[]) => Webpack.FilterFn) {
         const cache = new Map<string, unknown>();
 
         return function (...filterProps: unknown[]) {
             const cacheKey = String(filterProps);
             if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-            const matches = findAll(filterFactory(...filterProps), { topLevelOnly });
+            const matches = findAll(filterFactory(...filterProps));
 
             const result = (() => {
                 switch (matches.length) {
@@ -119,7 +119,6 @@ function makeShortcuts() {
         findByProps,
         findAllByProps: (...props: string[]) => findAll(filters.byProps(...props)),
         findByCode: newFindWrapper(filters.byCode),
-        findCssClasses: newFindWrapper(filters.byClassNames, true),
         findAllByCode: (code: string) => findAll(filters.byCode(code)),
         findComponentByCode: newFindWrapper(filters.componentByCode),
         findAllComponentsByCode: (...code: string[]) => findAll(filters.componentByCode(...code)),
@@ -249,13 +248,11 @@ export default definePlugin({
 
     patches: [
         {
-            find: "&&this.initializeIfNeeded()",
-            replacement: [
-                {
-                    match: /\i&&this\.initializeIfNeeded\(\)/,
-                    replace: "$&,Reflect.defineProperty(this,Symbol.toStringTag,{value:this.getName(),configurable:!0,writable:!0,enumerable:!1})"
-                }
-            ]
+            find: 'this,"_changeCallbacks",',
+            replacement: {
+                match: /\i\(this,"_changeCallbacks",/,
+                replace: "Reflect.defineProperty(this,Symbol.toStringTag,{value:this.getName(),configurable:!0,writable:!0,enumerable:!1}),$&"
+            }
         }
     ],
 

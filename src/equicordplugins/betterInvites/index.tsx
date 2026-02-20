@@ -12,10 +12,10 @@ import { openUserProfile } from "@utils/discord";
 import { classes } from "@utils/misc";
 import definePlugin, { StartAt } from "@utils/types";
 import { Guild } from "@vencord/discord-types";
-import { findByPropsLazy, findCssClassesLazy } from "@webpack";
+import { findByPropsLazy } from "@webpack";
 import { Parser, Tooltip, UserStore } from "@webpack/common";
 
-const AvatarStyles = findCssClassesLazy("avatar", "zalgo", "clickable");
+const AvatarStyles = findByPropsLazy("avatar", "zalgo");
 const GuildManager = findByPropsLazy("joinGuild");
 
 interface User {
@@ -33,24 +33,24 @@ function lurk(id: string) {
 
 export default definePlugin({
     name: "BetterInvites",
-    description: "See invites expiration date, view inviter profile and preview servers before joining by clicking the name",
+    description: "See invites expiration date, view inviter profile and preview discoverable servers before joining by clicking their name",
     authors: [EquicordDevs.iamme, Devs.thororen],
     patches: [
         {
-            find: "#{intl::xdCLeM::raw}",
+            find: ".hideDetailsButtonContainer,",
             replacement: [
                 {
-                    match: /profile:\i\}\),.{0,15}profile:\i/,
+                    match: /banner\}\),.{0,25}profile:\i\}\),.{0,15}profile:\i/,
                     replace: "$&,invite:arguments[0].invite"
                 }
             ]
         },
         {
-            find: "onlineCount})})]",
+            find: ".guildNameContainer,onClick:",
             replacement: [
                 {
                     // make the button clickable
-                    match: /children:(\i)\.name\}\)\}\)\}\)/,
+                    match: /children:(\i)\.name\}\).{0,100}\.guildNameContainer/,
                     replace: "onClick:$self.Lurkable($1),$&"
                 },
                 {

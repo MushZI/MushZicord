@@ -12,11 +12,11 @@ import { Devs } from "@utils/constants";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType, StartAt } from "@utils/types";
 import { Channel } from "@vencord/discord-types";
-import { findCssClassesLazy, findStoreLazy } from "@webpack";
+import { findByPropsLazy, findStoreLazy } from "@webpack";
 import { Clickable, ContextMenuApi, FluxDispatcher, Menu, React } from "@webpack/common";
 
 import { contextMenus } from "./components/contextMenu";
-import { openCategoryModal, requireSettingsModal } from "./components/CreateCategoryModal";
+import { openCategoryModal, requireSettingsMenu } from "./components/CreateCategoryModal";
 import { DEFAULT_CHUNK_SIZE } from "./constants";
 import { canMoveCategory, canMoveCategoryInDirection, Category, categoryLen, collapseCategory, getAllUncollapsedChannels, getCategoryByIndex, getSections, init, isPinned, moveCategory, removeCategory, usePinnedDms } from "./data";
 
@@ -26,7 +26,7 @@ interface ChannelComponentProps {
     selected: boolean;
 }
 
-const headerClasses = findCssClassesLazy("privateChannelsHeaderContainer", "headerText");
+const headerClasses = findByPropsLazy("privateChannelsHeaderContainer");
 
 export const PrivateChannelSortStore = findStoreLazy("PrivateChannelSortStore") as { getPrivateChannelIds: () => string[]; };
 
@@ -73,7 +73,7 @@ export default definePlugin({
 
     patches: [
         {
-            find: '"dm-quick-launcher"===',
+            find: ".privateChannelsHeaderContainer,",
             replacement: [
                 {
                     // Filter out pinned channels from the private channel list
@@ -88,16 +88,16 @@ export default definePlugin({
 
                 // Rendering
                 {
-                    match: /renderRow(?:",|=)(\i)=>{(?<=renderDM(?:",|=).+?(\i\.\i),\{channel:.+?)/,
+                    match: /"renderRow",(\i)=>{(?<="renderDM",.+?(\i\.\i),\{channel:.+?)/,
                     replace: "$&if($self.isChannelIndex($1.section, $1.row))return $self.renderChannel($1.section,$1.row,$2)();"
                 },
                 {
-                    match: /renderSection(?:",|=)(\i)=>{/,
+                    match: /"renderSection",(\i)=>{/,
                     replace: "$&if($self.isCategoryIndex($1.section))return $self.renderCategory($1);"
                 },
                 {
-                    match: /renderSection(?:",|=).{0,300}?"span",{/,
-                    replace: "$&...$self.makeSpanProps(),"
+                    match: /(?<=span",{)className:\i\.headerText,/,
+                    replace: "...$self.makeSpanProps(),$&"
                 },
 
                 // Fix Row Height
@@ -106,7 +106,7 @@ export default definePlugin({
                     replace: "$1($2-$self.categoryLen())"
                 },
                 {
-                    match: /getRowHeight(?:",|=)\((\i),(\i)\)=>{/,
+                    match: /"getRowHeight",\((\i),(\i)\)=>{/,
                     replace: "$&if($self.isChannelHidden($1,$2))return 0;"
                 },
 
@@ -147,7 +147,7 @@ export default definePlugin({
 
         // fix alt+shift+up/down
         {
-            find: "=()=>!1,ensureChatIsVisible:",
+            find: ".getFlattenedGuildIds()],",
             replacement: {
                 match: /(?<=\i===\i\.ME\?)\i\.\i\.getPrivateChannelIds\(\)/,
                 replace: "$self.getAllUncollapsedChannels().concat($&.filter(c=>!$self.isPinned(c)))"
@@ -173,7 +173,7 @@ export default definePlugin({
     categoryLen,
     getSections,
     getAllUncollapsedChannels,
-    requireSettingsMenu: requireSettingsModal,
+    requireSettingsMenu,
 
     makeProps(instance, { sections }: { sections: number[]; }) {
         this._instance = instance;

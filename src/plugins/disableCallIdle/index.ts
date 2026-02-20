@@ -25,20 +25,18 @@ export default definePlugin({
     authors: [Devs.Nuckyz],
     patches: [
         {
-            find: "this.idleTimeout.start(",
+            find: "#{intl::BOT_CALL_IDLE_DISCONNECT_2}",
             replacement: {
-                match: /this\.idleTimeout\.(start|stop)/g,
-                replace: "$self.noop"
+                match: /,?(?=\i\(this,"idleTimeout",new \i\.\i\))/,
+                replace: ";return;"
             }
         },
         {
             find: "handleIdleUpdate(){",
             replacement: {
-                match: "handleIdleUpdate(){",
-                replace: "handleIdleUpdate(){return;"
+                match: /(?<=_initialize\(\){)/,
+                replace: "return;"
             }
         }
-    ],
-
-    noop() { }
+    ]
 });

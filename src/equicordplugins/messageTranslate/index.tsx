@@ -57,7 +57,7 @@ export default definePlugin({
     TranslateMessage: TranslateMessage,
     patches: [
         {
-            find: '.CUSTOM_GIFT?""',
+            find: ".messageListItem",
             replacement: {
                 match: /renderContentOnly:\i}=\i;/,
                 replace: "$&$self.TranslateMessage(arguments[0].message.content).then(response => arguments[0].message.content = response);"

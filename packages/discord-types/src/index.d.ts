@@ -1,4 +1,5 @@
 export * from "./common";
+export * from "./classes";
 export * from "./components";
 export * from "./flux";
 export * from "./fluxEvents";

@@ -5,89 +5,84 @@
  */
 
 import { CopyIcon, DeleteIcon, IDIcon, LinkIcon, OpenExternalIcon } from "@components/Icons";
-import { ChannelMessage, ChannelRecord, messageClasses, MessageRecord } from "@equicordplugins/holyNotes";
+import { makeDummyUser } from "@components/settings/tabs/plugins/PluginModal";
+import { MessageType } from "@equicordplugins/holyNotes";
 import { noteHandler } from "@equicordplugins/holyNotes/NoteHandler";
-import { Note } from "@equicordplugins/holyNotes/types";
+import { HolyNotes } from "@equicordplugins/holyNotes/types";
 import { copyToClipboard } from "@utils/clipboard";
-import { fetchUserProfile } from "@utils/discord";
-import { proxyLazy } from "@utils/lazy";
 import { classes } from "@utils/misc";
-import { ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, useEffect, useReducer, useRef, UserStore } from "@webpack/common";
+import { ModalProps } from "@utils/modal";
+import { findByCodeLazy, findByPropsLazy, findComponentByCodeLazy } from "@webpack";
+import { ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React } from "@webpack/common";
 
-const UserRecord = proxyLazy(() => UserStore.getCurrentUser().constructor) as any;
+const messageClasses = findByPropsLazy("message", "groupStart", "cozyMessage");
+const Channel = findByCodeLazy("computeLurkerPermissionsAllowList(){");
+const ChannelMessage = findComponentByCodeLazy("Message must not be a thread");
 
-interface Props {
-    note: Note;
+export const RenderMessage = ({
+    note,
+    notebook,
+    updateParent,
+    fromDeleteModal,
+    closeModal,
+}: {
+    note: HolyNotes.Note;
     notebook: string;
     updateParent?: () => void;
     fromDeleteModal: boolean;
     closeModal?: () => void;
-}
+}) => {
+    const isHoldingDeleteRef = React.useRef(false);
+    const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
-export function RenderMessage({ note, notebook, updateParent, fromDeleteModal, closeModal }: Props) {
-    const isHoldingDeleteRef = useRef(false);
-    const [, forceUpdate] = useReducer(x => x + 1, 0);
-
-    useEffect(() => {
-        if (!UserStore.getUser(note.author.id)) {
-            fetchUserProfile(note.author.id);
-        }
-    }, [note.author.id]);
-
-    useEffect(() => {
-        const handleKey = (e: KeyboardEvent) => {
-            if (e.key !== "Delete") return;
-            const isDown = e.type === "keydown";
-            if (isHoldingDeleteRef.current !== isDown) {
-                isHoldingDeleteRef.current = isDown;
+    React.useEffect(() => {
+        const deleteHandler = (e: KeyboardEvent) => {
+            if (e.key.toLowerCase() !== "delete") return;
+            const newState = e.type === "keydown";
+            if (isHoldingDeleteRef.current !== newState) {
+                isHoldingDeleteRef.current = newState;
                 forceUpdate();
             }
         };
 
-        document.addEventListener("keydown", handleKey);
-        document.addEventListener("keyup", handleKey);
+        document.addEventListener("keydown", deleteHandler);
+        document.addEventListener("keyup", deleteHandler);
+
         return () => {
-            document.removeEventListener("keydown", handleKey);
-            document.removeEventListener("keyup", handleKey);
+            document.removeEventListener("keydown", deleteHandler);
+            document.removeEventListener("keyup", deleteHandler);
         };
     }, []);
-
-    const author = UserStore.getUser(note.author.id) ?? note.author;
-
-    const handleClick = () => {
-        if (isHoldingDeleteRef.current && !fromDeleteModal) {
-            noteHandler.deleteNote(note.id, notebook);
-            updateParent?.();
-        }
-    };
-
-    const handleContextMenu = (e: React.MouseEvent) => {
-        if (fromDeleteModal) return;
-        ContextMenuApi.openContextMenu(e, () => (
-            <NoteContextMenu
-                note={note}
-                notebook={notebook}
-                updateParent={updateParent}
-                closeModal={closeModal}
-            />
-        ));
-    };
-
-    const message = new MessageRecord({
-        ...note,
-        author: new UserRecord({ ...author, bot: true }),
-        timestamp: new Date(note.timestamp),
-        embeds: note.embeds?.map(embed =>
-            embed.timestamp ? { ...embed, timestamp: new Date(embed.timestamp) } : embed
-        ),
-    });
 
     return (
         <div
             className="vc-holy-note"
-            style={{ margin: "8px 0", padding: "4px 0" }}
-            onClick={handleClick}
-            onContextMenu={handleContextMenu}
+            style={{
+                marginBottom: "8px",
+                marginTop: "8px",
+                paddingTop: "4px",
+                paddingBottom: "4px",
+            }}
+            onClick={() => {
+                if (isHoldingDeleteRef.current && !fromDeleteModal) {
+                    noteHandler.deleteNote(note.id, notebook);
+                    updateParent?.();
+                }
+            }}
+            onContextMenu={(event: any) => {
+                if (!fromDeleteModal)
+                    // @ts-ignore
+                    return ContextMenuApi.openContextMenu(event, (props: any) => (
+                        // @ts-ignore
+                        <NoteContextMenu
+                            {...Object.assign({}, props, { onClose: close })}
+                            note={note}
+                            notebook={notebook}
+                            updateParent={updateParent}
+                            closeModal={closeModal}
+                        />
+                    ));
+            }}
         >
             <ChannelMessage
                 className={classes("vc-holy-render", messageClasses?.message, messageClasses?.groupStart, messageClasses?.cozyMessage)}
@@ -98,22 +93,41 @@ export function RenderMessage({ note, notebook, updateParent, fromDeleteModal, c
                 isHighlight={false}
                 isLastItem={false}
                 renderContentOnly={false}
-                channel={new ChannelRecord({ id: "holy-notes" })}
-                message={message}
+                // @ts-ignore
+                channel={new Channel({ id: "holy-notes" })}
+                message={
+                    new MessageType(
+                        Object.assign(
+                            { ...note },
+                            {
+                                author: makeDummyUser(note?.author),
+                                timestamp: new Date(note?.timestamp),
+                                // @ts-ignore
+                                embeds: note?.embeds?.map((embed: { timestamp: string | number | Date; }) =>
+                                    embed.timestamp
+                                        ? Object.assign(embed, {
+                                            timestamp: new Date(embed.timestamp),
+                                        })
+                                        : embed,
+                                ),
+                            },
+                        ),
+                    )
+                }
             />
+
         </div>
     );
-}
+};
 
-interface ContextMenuProps {
-    note: Note;
-    notebook: string;
-    updateParent?: () => void;
-    closeModal?: () => void;
-}
-
-function NoteContextMenu({ note, notebook, updateParent, closeModal }: ContextMenuProps) {
-    const allNotebooks = Object.keys(noteHandler.getAllNotes());
+const NoteContextMenu = (
+    props: ModalProps & {
+        updateParent?: () => void;
+        notebook: string;
+        note: HolyNotes.Note;
+        closeModal?: () => void;
+    }) => {
+    const { note, notebook, updateParent, closeModal } = props;
 
     return (
         <Menu.Menu
@@ -124,57 +138,64 @@ function NoteContextMenu({ note, notebook, updateParent, closeModal }: ContextMe
             <Menu.MenuItem
                 label="Jump To Message"
                 id="jump"
-                icon={OpenExternalIcon}
                 action={() => {
-                    NavigationRouter.transitionTo(`/channels/${note.guild_id || "@me"}/${note.channel_id}/${note.id}`);
+                    NavigationRouter.transitionTo(`/channels/${note.guild_id ?? "@me"}/${note.channel_id}/${note.id}`);
                     closeModal?.();
                 }}
+                icon={OpenExternalIcon}
             />
             <Menu.MenuItem
                 label="Copy Text"
                 id="copy-text"
-                icon={CopyIcon}
                 action={() => copyToClipboard(note.content)}
+                icon={CopyIcon}
             />
-            {note.attachments.length > 0 && (
+            {note?.attachments.length ? (
                 <Menu.MenuItem
                     label="Copy Attachment URL"
                     id="copy-url"
-                    icon={LinkIcon}
                     action={() => copyToClipboard(note.attachments[0].url)}
-                />
-            )}
+                    icon={LinkIcon}
+                />) : null}
             <Menu.MenuItem
                 label="Copy ID"
                 id="copy-id"
-                icon={IDIcon}
                 action={() => copyToClipboard(note.id)}
+                icon={IDIcon}
             />
-            {allNotebooks.length > 1 && (
-                <Menu.MenuItem label="Move Note" id="move-note">
-                    {allNotebooks.filter(k => k !== notebook).map(k => (
-                        <Menu.MenuItem
-                            key={k}
-                            label={`Move to ${k}`}
-                            id={k}
-                            action={() => {
-                                noteHandler.moveNote(note, notebook, k);
-                                updateParent?.();
-                            }}
-                        />
-                    ))}
+            {Object.keys(noteHandler.getAllNotes()).length !== 1 ? (
+                <Menu.MenuItem
+                    label="Move Note"
+                    id="move-note"
+                >
+                    {Object.keys(noteHandler.getAllNotes()).map((key: string) => {
+                        if (key !== notebook) {
+                            return (
+                                <Menu.MenuItem
+                                    key={key}
+                                    label={`Move to ${key}`}
+                                    id={key}
+                                    action={() => {
+                                        noteHandler.moveNote(note, notebook, key);
+                                        updateParent?.();
+                                    }}
+                                />
+                            );
+                        }
+                    })}
                 </Menu.MenuItem>
-            )}
+            ) : null}
             <Menu.MenuItem
                 color="danger"
                 label="Delete Note"
                 id="delete"
-                icon={DeleteIcon}
                 action={() => {
                     noteHandler.deleteNote(note.id, notebook);
                     updateParent?.();
                 }}
+                icon={DeleteIcon}
             />
         </Menu.Menu>
     );
-}
+
+};

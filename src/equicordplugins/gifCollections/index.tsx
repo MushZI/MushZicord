@@ -315,7 +315,7 @@ export default definePlugin({
                     replace: "$1;$self.insertCollections(this);$2"
                 },
                 {
-                    match: /("span",\{className:\i\.\i,children:)(\i)/,
+                    match: /(className:\w\.categoryName,children:)(\i)/,
                     replace: "$1$self.hidePrefix($2),"
                 },
             ]

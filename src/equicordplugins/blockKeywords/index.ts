@@ -73,10 +73,10 @@ export default definePlugin({
     authors: [EquicordDevs.catcraft],
     patches: [
         {
-            find: "_channelMessages={}",
+            find: '"_channelMessages",{})',
             predicate: () => settings.store.blockedWords !== "",
             replacement: {
-                match: /static commit\((\i)\)\{/g,
+                match: /static commit\((.{1,2})\){/g,
                 replace: "$&$1=$self.blockMessagesWithKeywords($1);"
             }
         },

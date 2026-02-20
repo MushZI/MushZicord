@@ -37,10 +37,12 @@ enum VerifyState {
 function VerifyModal({
     token,
     onAbort,
+    closeMain,
     ...props
 }: {
     token: string | null;
     onAbort: () => void;
+    closeMain: () => void;
 } & ModalProps) {
     const [state, setState] = useState(
         !token ? VerifyState.NotFound : VerifyState.Verifying
@@ -75,6 +77,7 @@ function VerifyModal({
                 },
             })
                 .then(() => {
+                    closeMain();
                     setState(VerifyState.LoggedIn);
                 })
                 .catch(() => setState(VerifyState.NotFound))
@@ -226,12 +229,14 @@ function VerifyModal({
 export default function openVerifyModal(
     token: string | null,
     onAbort: () => void,
+    closeMain: () => void
 ) {
     return openModal(props => (
         <VerifyModal
             {...props}
             token={token}
             onAbort={onAbort}
+            closeMain={closeMain}
         />
     ));
 }

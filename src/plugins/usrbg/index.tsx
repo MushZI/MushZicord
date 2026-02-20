@@ -58,9 +58,9 @@ export default definePlugin({
     settings,
     patches: [
         {
-            find: ':"SHOULD_LOAD");',
+            find: '.banner)==null?"COMPLETE"',
             replacement: {
-                match: /\i(?:\?)?.getPreviewBanner\(\i,\i,\i\)(?=.{0,100}"COMPLETE")/,
+                match: /(?<=void 0:)\i.getPreviewBanner\(\i,\i,\i\)/,
                 replace: "$self.patchBannerUrl(arguments[0])||$&"
 
             }

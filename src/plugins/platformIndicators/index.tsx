@@ -18,7 +18,7 @@
 
 import "./style.css";
 
-import { definePluginSettings, migratePluginSetting } from "@api/Settings";
+import { definePluginSettings, migratePluginSetting, Settings } from "@api/Settings";
 import { Devs } from "@utils/constants";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
@@ -40,7 +40,8 @@ export interface Session {
 const SessionsStore = findStoreLazy("SessionsStore") as {
     getSessions(): Record<string, Session>;
 };
-const { useStatusFillColor } = mapMangledModuleLazy([".5625*", "translate"], {
+
+const { useStatusFillColor } = mapMangledModuleLazy(".concat(.5625*", {
     useStatusFillColor: filters.byCode(".hex")
 });
 
@@ -131,7 +132,7 @@ interface PlatformIndicatorProps {
 }
 
 const PlatformIndicator = ({ user, isProfile, isMessage, isMemberList }: PlatformIndicatorProps) => {
-    if (user == null || (user.bot && !settings.store.showBots)) return null;
+    if (user == null || (user.bot && !Settings.plugins.PlatformIndicators.showBots)) return null;
     useEnsureOwnStatus(user);
 
     const status = useStateFromStores([PresenceStore], () => PresenceStore.getClientStatus(user.id));
@@ -260,8 +261,8 @@ export default definePlugin({
                 },
                 {
                     // Fix sizes for mobile indicators which aren't online
-                    match: /(?<=\(\i\.status,)(\i)(?=,\{.{0,15}isMobile:(\i))/,
-                    replace: '$2?"online":$1'
+                    match: /(?<=\(\i\.status,)(\i)(?=,(\i),\i\))/,
+                    replace: (_, userStatus, isMobile) => `${isMobile}?"online":${userStatus}`
                 },
                 {
                     // Make isMobile true no matter the status

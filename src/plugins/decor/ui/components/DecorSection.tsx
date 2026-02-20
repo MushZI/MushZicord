@@ -13,7 +13,7 @@ import { openChangeDecorationModal } from "@plugins/decor/ui/modals/ChangeDecora
 import { findComponentByCodeLazy } from "@webpack";
 import { useEffect } from "@webpack/common";
 
-const CustomizationSection = findComponentByCodeLazy(".DESCRIPTION", "hasBackground:");
+const CustomizationSection = findComponentByCodeLazy(".customizationSectionBackground");
 
 export interface DecorSectionProps {
     hideTitle?: boolean;

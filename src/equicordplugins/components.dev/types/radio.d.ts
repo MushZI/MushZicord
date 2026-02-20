@@ -7,35 +7,18 @@
 export interface RadioOption {
     value: string | number;
     name: string;
-    description?: string;
+    desc?: string;
     disabled?: boolean;
-    icon?: React.ComponentType<{ className?: string; size?: string; color?: string; }>;
-    color?: string;
-    radioItemIconClassName?: string;
-    radioBarClassName?: string;
+    leadingIcon?: React.ComponentType<{ className?: string; size?: string; color?: string; }>;
 }
-
-export type RadioPosition = "left" | "right";
 
 export interface ManaBaseRadioGroupProps {
     options: RadioOption[];
-    value?: string | number | null;
+    value?: string | number;
     onChange?: (value: string | number) => void;
     disabled?: boolean;
-    size?: string;
-    orientation?: "vertical" | "horizontal";
-    radioPosition?: RadioPosition;
-    withTransparentBackground?: boolean;
     label?: string;
-    description?: string;
-    required?: boolean;
-    errorMessage?: string;
     "aria-labelledby"?: string;
-    className?: string;
-    itemInfoClassName?: string;
-    itemTitleClassName?: string;
-    radioItemClassName?: string;
-    collapsibleClassName?: string;
 }
 
 export interface StandaloneRadioIndicatorProps {

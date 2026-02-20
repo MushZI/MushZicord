@@ -27,7 +27,6 @@ import { fileURLToPath } from "url";
 
 const BASE_URL = "https://github.com/Equicord/Equilotl/releases/latest/download/";
 const INSTALLER_PATH_DARWIN = "Equilotl.app/Contents/MacOS/Equilotl";
-const INSTALLER_APP_DARWIN = "Equilotl.app";
 
 const BASE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FILE_DIR = join(BASE_DIR, "dist", "Installer");
@@ -54,11 +53,8 @@ async function ensureBinary() {
 
     const downloadName = join(FILE_DIR, filename);
     const outputFile = process.platform === "darwin"
-        ? join(FILE_DIR, INSTALLER_PATH_DARWIN)
+        ? join(FILE_DIR, "Equilotl")
         : downloadName;
-    const outputApp = process.platform === "darwin"
-        ? join(FILE_DIR, INSTALLER_APP_DARWIN)
-        : null;
 
     const etag = existsSync(outputFile) && existsSync(ETAG_FILE)
         ? readFileSync(ETAG_FILE, "utf-8")
@@ -81,14 +77,17 @@ async function ensureBinary() {
     writeFileSync(ETAG_FILE, res.headers.get("etag"));
 
     if (process.platform === "darwin") {
-        console.log("Saving zip...");
+        console.log("Unzipping...");
         const zip = new Uint8Array(await res.arrayBuffer());
-        writeFileSync(downloadName, zip);
 
-        console.log("Unzipping app bundle...");
-        execSync(`ditto -x -k '${downloadName}' '${FILE_DIR}'`);
+        const ff = await import("fflate");
+        const bytes = ff.unzipSync(zip, {
+            filter: f => f.name === INSTALLER_PATH_DARWIN
+        })[INSTALLER_PATH_DARWIN];
 
-        console.log("Clearing quarantine from installer app (this is required to run it)");
+        writeFileSync(outputFile, bytes, { mode: 0o755 });
+
+        console.log("Overriding security policy for installer binary (this is required to run it)");
         console.log("xattr might error, that's okay");
 
         const logAndRun = cmd => {
@@ -97,7 +96,8 @@ async function ensureBinary() {
                 execSync(cmd);
             } catch { }
         };
-        logAndRun(`sudo xattr -dr com.apple.quarantine '${outputApp}'`);
+        logAndRun(`sudo spctl --add '${outputFile}' --label "Equilotl"`);
+        logAndRun(`sudo xattr -d com.apple.quarantine '${outputFile}'`);
     } else {
         // WHY DOES NODE FETCH RETURN A WEB STREAM OH MY GOD
         const body = Readable.fromWeb(res.body);

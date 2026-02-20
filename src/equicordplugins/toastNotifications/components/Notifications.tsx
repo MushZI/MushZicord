@@ -25,7 +25,7 @@ import NotificationComponent from "./NotificationComponent";
 
 let NotificationQueue: JSX.Element[] = [];
 let notificationID = 0;
-let RootContainer: Root | undefined;
+let RootContainer: Root;
 
 function getNotificationContainer() {
     if (!RootContainer) {

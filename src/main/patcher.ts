@@ -21,7 +21,6 @@ import electron, { app, BrowserWindowConstructorOptions, Menu } from "electron";
 import { dirname, join } from "path";
 
 import { RendererSettings } from "./settings";
-import { patchTrayMenu } from "./trayMenu";
 import { IS_VANILLA } from "./utils/constants";
 
 console.log("[Equicord] Starting up...");
@@ -41,9 +40,6 @@ app.setAppPath(asarPath);
 
 if (!IS_VANILLA) {
     const settings = RendererSettings.store;
-
-    patchTrayMenu();
-
     // Repatch after host updates on Windows
     if (process.platform === "win32") {
         require("./patchWin32Updater");

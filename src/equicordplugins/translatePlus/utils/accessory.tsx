@@ -28,12 +28,12 @@ export function Accessory({ message }: { message: Message; }) {
     if (!translation) return null;
 
     return (
-        <div className={cl("accessory")}>
+        <span className={cl("accessory")}>
             <SmallIcon />
             {Parser.parse(translation.text)}
             {" "}
             (translated from {languages[translation.src] ?? translation.src} - <button onClick={() => setTranslation(undefined)} className={cl("dismiss")}>Dismiss</button>)
-        </div>
+        </span>
     );
 }
 

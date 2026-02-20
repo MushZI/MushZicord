@@ -18,12 +18,7 @@ import { getStickerPack, getStickerPackMetas } from "./stickers";
 import { StickerPack, StickerPackMeta } from "./types";
 import { cl, FFmpegStateContext, loadFFmpeg } from "./utils";
 
-export const settings = definePluginSettings({
-    promptToUpload: {
-        type: OptionType.BOOLEAN,
-        description: "Inserts the sticker into your chatbar instead of sending immediately",
-        default: false
-    },
+const settings = definePluginSettings({
     packs: {
         type: OptionType.COMPONENT,
         description: "Packs",
@@ -39,9 +34,9 @@ export default definePlugin({
 
     patches: [
         {
-            find: "#{intl::STICKER_BUTTON_LABEL}",
+            find: ".stickerButton)},",
             replacement: [{
-                match: /(children:\(0,\i\.jsx\)\()(.{0,10})({className:\i\(\)\(\i\.\i,\i\.\i)/,
+                match: /(children:\(0,\i\.jsx\)\()(.{0,10})({(className|innerClassName).{10,30}\.stickerButton)/,
                 replace: "$1arguments[0]?.stickersType?$self.stickerButton:$2$3"
             }, {
                 match: /(\i=)((\i\.useCallback\(\(\)=>\{\(.*?\)\().*?\.STICKER,(\i.{0,25}\]\)))/,
@@ -52,23 +47,27 @@ export default definePlugin({
             }]
         },
         {
-            find: ".GIFT_PROMOTION]).",
+            find: ".gifts)",
             replacement: [
                 {
-                    match: /(?<=(,\i\.stickers\?\.button.{0,50}\i\.push\(\(.{0,100})\},"sticker"\)\))/,
-                    replace: "$1,stickersType:\"stickers+\"},\"stickers+\"))"
+                    match: /(?<=(,\(null==\(\i=\i\.stickers\)\?void 0.*?\i\.push\(\{).{0,15}node:(.{0,50})},"sticker"\)\}\))/,
+                    replace: "$1key:\"stickers+\",node:$2,stickersType:\"stickers+\"},\"stickers+\")})"
                 },
+                {
+                    match: /(?<="submit"\)\}\);)(?=.{0,50}null!=(\i))/,
+                    replace: '$1["stickers+"]=3;'
+                }
             ]
         },
         {
             find: "#{intl::EXPRESSION_PICKER_CATEGORIES_A11Y_LABEL}",
             replacement: [
                 {
-                    match: /(?<=(\i)\?(\(.{0,15}\))\((\i),\{.{0,150}(\i)===\i\.\i\.STICKER,.{0,150}children:(.{0,30}\.\i,children:.{0,25})\}\)\}\):null)/,
+                    match: /(?<=(\i)\?(\(.{0,15}\))\((\i),\{.{0,150}(\i)===\i\.\i\.STICKER,.{0,150}children:(.{0,30}\.stickersNavItem,children:.{0,25})\}\)\}\):null)/,
                     replace: ',vcStickers=$1?$2($3,{id:"stickers+-picker-tab","aria-controls":"more-stickers-picker-tab-panel","aria-selected":$4==="stickers+",isActive:$4==="stickers+",autoFocus:true,viewType:"stickers+",children:$5+"+"})}):null'
                 },
                 {
-                    match: /children:\[\i,\i(?=.{0,150}\.SOUNDBOARD)/g,
+                    match: /children:\[\i,\i(?=.{0,5}\}\))/g,
                     replace: "$&,vcStickers"
                 },
                 {
@@ -77,6 +76,13 @@ export default definePlugin({
                 }
             ]
         },
+        {
+            find: '==="remove_text"',
+            replacement: {
+                match: /,\i\.insertText=\i=>{[\w ;]*?1===\i\.length&&.+?==="remove_text"/,
+                replace: ",$self.textEditor=arguments[0]$&"
+            }
+        }
     ],
     stickerButton({
         innerClassName,

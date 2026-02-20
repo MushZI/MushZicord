@@ -4,13 +4,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import "./styles.css";
-
 import SettingsPlugin from "@plugins/_core/settings";
-import { Devs } from "@utils/constants";
-import { removeFromArray } from "@utils/misc";
+import { EquicordDevs } from "@utils/constants";
 import definePlugin, { StartAt } from "@utils/types";
-import { SettingsRouter } from "@webpack/common";
+import { openUserSettingsPanel } from "@webpack/common";
 
 import ComponentsTab from "./components/ComponentsTab";
 
@@ -41,26 +38,37 @@ function ComponentsIcon(props: React.SVGProps<SVGSVGElement>) {
 export default definePlugin({
     name: "Components",
     description: "Adds a new tab to settings to browse Discord components.",
-    authors: [Devs.prism],
+    authors: [EquicordDevs.Prism],
     dependencies: ["Settings"],
     startAt: StartAt.WebpackReady,
     toolboxActions: {
         "Open Components Tab"() {
-            SettingsRouter.openUserSettings("equicord_components_panel");
+            openUserSettingsPanel("equicord_components");
         },
     },
     start() {
-        SettingsPlugin.customEntries.push({
+        const { customEntries, customSections } = SettingsPlugin;
+
+        customEntries.push({
             key: "equicord_components",
             title: "Components",
             Component: ComponentsTab,
             Icon: ComponentsIcon
         });
 
-        SettingsPlugin.settingsSectionMap.push(["EquicordDiscordComponents", "equicord_components"]);
+        customSections.push(() => ({
+            section: "EquicordDiscordComponents",
+            label: "Components",
+            element: ComponentsTab,
+            className: "vc-discord-components",
+            id: "Components"
+        }));
     },
     stop() {
-        removeFromArray(SettingsPlugin.customEntries, e => e.key === "equicord_components");
-        removeFromArray(SettingsPlugin.settingsSectionMap, entry => entry[1] === "equicord_components");
+        const { customEntries, customSections } = SettingsPlugin;
+        const entryIdx = customEntries.findIndex(e => e.key === "equicord_components");
+        const sectionIdx = customSections.findIndex(s => s({} as any).id === "Components");
+        if (entryIdx !== -1) customEntries.splice(entryIdx, 1);
+        if (sectionIdx !== -1) customSections.splice(sectionIdx, 1);
     },
 });

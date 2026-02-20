@@ -35,16 +35,4 @@ export interface ManaCheckboxGroupProps {
     selectedValues: (string | number)[];
     onChange?: (values: (string | number)[]) => void;
     disabled?: boolean;
-    label?: string;
-    hideLabel?: boolean;
-    badge?: React.ReactNode;
-    icon?: React.ReactNode;
-    required?: boolean;
-    description?: string;
-    helperText?: string;
-    errorMessage?: string;
-    successMessage?: string;
-    id?: string;
-    layout?: string;
-    layoutConfig?: Record<string, unknown>;
 }

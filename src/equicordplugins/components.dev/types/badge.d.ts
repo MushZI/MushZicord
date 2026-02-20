@@ -11,7 +11,7 @@ export interface BadgeShapesType {
     SQUARE: string;
 }
 
-export interface NumberBadgeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
+export interface NumberBadgeProps {
     count: number;
     color?: string;
     disableColor?: boolean;
@@ -21,7 +21,7 @@ export interface NumberBadgeProps extends Omit<React.HTMLAttributes<HTMLDivEleme
     renderBadgeCount?: (count: number) => string;
 }
 
-export interface TextBadgeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
+export interface TextBadgeProps {
     text: string;
     color?: string;
     disableColor?: boolean;
@@ -39,19 +39,10 @@ export interface IconBadgeProps {
     style?: React.CSSProperties;
 }
 
-export interface CircleBadgeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
+export interface CircleBadgeProps {
     color?: string;
     disableColor?: boolean;
     shape?: string;
     className?: string;
-    style?: React.CSSProperties;
-}
-
-export interface PremiumBadgeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
-    text: string;
-    className?: string;
-    color?: string;
-    disableColor?: boolean;
-    shape?: string;
     style?: React.CSSProperties;
 }

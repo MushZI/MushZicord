@@ -18,10 +18,10 @@
 
 import { Devs, IS_MAC } from "@utils/constants";
 import definePlugin from "@utils/types";
-import { findCssClassesLazy } from "@webpack";
+import { findByPropsLazy } from "@webpack";
 
-const SpoilerClasses = findCssClassesLazy("spoilerContent", "hidden");
-const MessagesClasses = findCssClassesLazy("messagesWrapper", "navigationDescription");
+const SpoilerClasses = findByPropsLazy("spoilerContent");
+const MessagesClasses = findByPropsLazy("messagesWrapper", "navigationDescription");
 
 export default definePlugin({
     name: "RevealAllSpoilers",
@@ -32,7 +32,7 @@ export default definePlugin({
         {
             find: ".removeObscurity,",
             replacement: {
-                match: /(?<=removeObscurity(?:",|=)(\i)=>{)/,
+                match: /(?<="removeObscurity",(\i)=>{)/,
                 replace: (_, event) => `$self.reveal(${event});`
             }
         }

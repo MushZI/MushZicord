@@ -50,7 +50,7 @@ export function showAllActivitiesComponent({ activity, user, ...props }: Readonl
         return (
             <ErrorBoundary noop>
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                    {activity && currentActivity?.application_id === activity.application_id ? (
+                    {activity && currentActivity?.id === activity.id ? (
                         <ActivityView
                             activity={currentActivity}
                             user={user}

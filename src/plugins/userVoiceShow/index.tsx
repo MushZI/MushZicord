@@ -70,7 +70,7 @@ export default definePlugin({
         {
             find: "null!=this.peopleListItemRef.current",
             replacement: {
-                match: /\.isProvisional.{0,50}?className:\i\.\i,children:\[(?<=isFocused:(\i).+?)/,
+                match: /\.actions,children:\[(?<=isFocused:(\i).+?)/,
                 replace: "$&$self.VoiceChannelIndicator({userId:this?.props?.user?.id,isActionButton:true,shouldHighlight:$1}),"
             },
             predicate: () => settings.store.showInMemberList

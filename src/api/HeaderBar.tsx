@@ -6,15 +6,13 @@
 
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Logger } from "@utils/Logger";
-import { classes } from "@utils/misc";
-import { findComponentByCodeLazy, findCssClassesLazy } from "@webpack";
-import { Clickable, Tooltip, useEffect, useState } from "@webpack/common";
+import { findComponentByCodeLazy } from "@webpack";
+import { useEffect, useState } from "@webpack/common";
 import type { ComponentType, JSX, MouseEventHandler, ReactNode } from "react";
 
 const logger = new Logger("HeaderBarAPI");
 
-const HeaderBarClasses = findCssClassesLazy("clickable", "withHighlight");
-const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '"aria-haspopup":') as ComponentType<ChannelToolbarButtonProps>;
+const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '.iconBadge,"top"') as ComponentType<HeaderBarButtonProps>;
 
 export interface HeaderBarButtonProps {
     /** The icon component to render inside the button */
@@ -27,17 +25,6 @@ export interface HeaderBarButtonProps {
     onContextMenu?: MouseEventHandler<HTMLDivElement>;
     /** Additional CSS class names */
     className?: string;
-    /** Size of the icon in pixels */
-    iconSize?: number;
-    /** Tooltip position relative to the button */
-    position?: "top" | "bottom" | "left" | "right";
-    /** Whether the button appears in a selected/active state */
-    selected?: boolean;
-    /** Aria label for accessibility */
-    "aria-label"?: string;
-}
-
-export interface ChannelToolbarButtonProps extends HeaderBarButtonProps {
     /** CSS class name for the icon element */
     iconClassName?: string;
     /** Tooltip position relative to the button */
@@ -50,6 +37,10 @@ export interface ChannelToolbarButtonProps extends HeaderBarButtonProps {
     showBadge?: boolean;
     /** Position of the notification badge */
     badgePosition?: "top" | "bottom";
+    /** Size of the icon in pixels */
+    iconSize?: number;
+    /** Ref to the button element */
+    ref?: React.RefObject<any>;
 }
 
 export type HeaderBarButtonFactory = () => JSX.Element | null;
@@ -80,44 +71,7 @@ interface ButtonEntry {
  *     onClick={() => console.log("clicked")}
  * />
  */
-export function HeaderBarButton(props: HeaderBarButtonProps & { ref?: React.RefObject<any>; }) {
-    const {
-        icon: Icon,
-        tooltip,
-        onClick,
-        onContextMenu,
-        className,
-        iconSize = 18,
-        position = "bottom",
-        selected,
-        ref,
-        "aria-label": ariaLabel,
-    } = props;
-
-    const label = ariaLabel ?? (typeof tooltip === "string" ? tooltip : undefined);
-
-    return (
-        <Tooltip text={tooltip ?? ""} position={position} shouldShow={tooltip != null}>
-            {({ onMouseEnter, onMouseLeave }) => (
-                <Clickable
-                    {...{ innerRef: ref } as any}
-                    className={classes(HeaderBarClasses.clickable, HeaderBarClasses.withHighlight, className)}
-                    style={{ width: iconSize, boxSizing: "content-box", justifyContent: "center" }}
-                    onClick={onClick}
-                    onContextMenu={onContextMenu}
-                    onMouseEnter={onMouseEnter}
-                    onMouseLeave={onMouseLeave}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={label}
-                    aria-expanded={selected}
-                >
-                    <Icon size="custom" width={iconSize} height={iconSize} color="currentColor" />
-                </Clickable>
-            )}
-        </Tooltip>
-    );
-}
+export const HeaderBarButton = HeaderBarIcon;
 
 /**
  * Button component for the channel toolbar (below the search bar).
@@ -131,7 +85,7 @@ export function HeaderBarButton(props: HeaderBarButtonProps & { ref?: React.RefO
  *     selected={isOpen}
  * />
  */
-export function ChannelToolbarButton(props: ChannelToolbarButtonProps) {
+export function ChannelToolbarButton(props: HeaderBarButtonProps) {
     return <HeaderBarIcon {...props} />;
 }
 

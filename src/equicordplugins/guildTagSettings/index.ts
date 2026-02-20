@@ -43,7 +43,7 @@ const settings = definePluginSettings({
 
 export default definePlugin({
     name: "GuildTagSettings",
-    description: "Adds some settings for guild tags, such as hiding them or disabling the prompt to adopt them.",
+    description: "Settings for Guild Tags",
     authors: [Devs.thororen],
     settings,
     patches: [

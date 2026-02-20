@@ -4,23 +4,17 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { getMimeFromExtension } from "@equicordplugins/fileUpload/utils/getMediaUrl";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
-import { insertTextIntoChatInputBox, MessageOptions } from "@utils/discord";
-import { CloudUploadPlatform } from "@vencord/discord-types/enums";
-import { ChannelStore, CloudUploader, Constants, DraftStore, FluxDispatcher, MessageActions, PendingReplyStore, RestAPI, showToast, SnowflakeUtils, Toasts, UploadHandler } from "@webpack/common";
+import { findByPropsLazy } from "@webpack";
+import { ChannelStore, UploadHandler } from "@webpack/common";
 
-import { settings } from ".";
+import moreStickers from ".";
 import { FFmpegState, Sticker } from "./types";
 
-type SendStickerOptions = {
-    channelId: string;
-    sticker: Sticker;
-    ctrlKey: boolean;
-    shiftKey: boolean;
-    ffmpegState?: FFmpegState;
-};
+const PendingReplyStore = findByPropsLazy("getPendingReply");
+const MessageUtils = findByPropsLazy("sendMessage");
+const DraftStore = findByPropsLazy("getDraft", "getState");
 
 export const ffmpeg = new FFmpeg();
 
@@ -103,64 +97,88 @@ async function toGIF(url: string, ffmpeg: FFmpeg): Promise<File> {
     });
 }
 
-export async function sendSticker({ channelId, sticker, ctrlKey, shiftKey, ffmpegState }: SendStickerOptions) {
-    const reply = PendingReplyStore.getPendingReply(channelId);
-    let content = DraftStore.getDraft(channelId, 0);
-    let options: Partial<MessageOptions> = {};
-    let file: File;
+export async function sendSticker({
+    channelId,
+    sticker,
+    sendAsLink,
+    ctrlKey,
+    shiftKey,
+    ffmpegState
+}: { channelId: string; sticker: Sticker; sendAsLink?: boolean; ctrlKey: boolean; shiftKey: boolean; ffmpegState?: FFmpegState; }) {
 
-    if (reply) {
-        FluxDispatcher.dispatch({ type: "DELETE_PENDING_REPLY", channelId });
-        options = MessageActions.getSendMessageOptionsForReply(reply);
+    let messageContent = "";
+    const { textEditor } = moreStickers;
+    if (DraftStore) {
+        messageContent = DraftStore.getDraft(channelId, 0);
     }
 
-    if (shiftKey) {
-        if (!content.endsWith(" ") && !content.endsWith("\n")) content = " ";
-        content += sticker.image;
-
-        return ctrlKey
-            ? insertTextIntoChatInputBox(content)
-            : MessageActions._sendMessage(channelId, { content: sticker.image }, options);
+    let messageOptions = {};
+    if (PendingReplyStore) {
+        const pendingReply = PendingReplyStore.getPendingReply(channelId);
+        if (pendingReply) {
+            messageOptions = MessageUtils.getSendMessageOptionsForReply(pendingReply);
+        }
     }
 
-    if (sticker?.isAnimated) {
-        if (!ffmpegState?.ffmpeg || !ffmpegState.isLoaded) throw new Error("FFmpeg not ready");
-        file = await toGIF(sticker.image, ffmpegState.ffmpeg);
-    } else {
-        const res = await fetch(sticker.image);
-        const blobUrl = URL.createObjectURL(await res.blob());
-        const processed = await resizeImage(blobUrl);
-        const filename = sticker.filename ?? new URL(sticker.image).pathname.split("/").pop()!;
-        const mimeType = getMimeFromExtension(filename.split(".").pop());
+    if ((ctrlKey || !sendAsLink) && !shiftKey) {
+        let file: File | null = null;
 
-        file = new File([processed], filename, { type: mimeType });
-    }
-
-    if (settings.store.promptToUpload || content) return UploadHandler.promptToUpload([file], ChannelStore.getChannel(channelId), 0);
-
-    const upload = new CloudUploader({ file, platform: CloudUploadPlatform.WEB }, channelId);
-
-    upload.on("complete", () => {
-        RestAPI.post({
-            url: Constants.Endpoints.MESSAGES(channelId),
-            body: {
-                flags: 0,
-                channel_id: channelId,
-                content: "",
-                nonce: SnowflakeUtils.fromTimestamp(Date.now()),
-                sticker_ids: [],
-                type: 0,
-                attachments: [{
-                    id: "0",
-                    filename: upload.filename,
-                    uploaded_filename: upload.uploadedFilename,
-                }],
-                message_reference: reply ? options?.messageReference : null,
+        if (sticker?.isAnimated) {
+            if (!ffmpegState) {
+                throw new Error("FFmpeg state is not provided");
             }
-        });
-    });
+            if (!ffmpegState?.ffmpeg) {
+                throw new Error("FFmpeg is not provided");
+            }
+            if (!ffmpegState?.isLoaded) {
+                throw new Error("FFmpeg is not loaded");
+            }
 
-    upload.on("error", () => showToast("Failed to upload sticker", Toasts.Type.FAILURE));
+            file = await toGIF(sticker.image, ffmpegState.ffmpeg);
+        }
+        else {
+            const url = new URL(sticker.image);
+            url.searchParams.set("t", Date.now().toString()); // To prevent caching, in order to avoid CORS bug in Chrome
+            const response = await fetch(sticker.image);
+            const orgImageUrl = URL.createObjectURL(await response.blob());
+            const processedImage = await resizeImage(orgImageUrl);
 
-    upload.upload();
+            const filename = sticker.filename ?? (new URL(sticker.image)).pathname.split("/").pop();
+            let mimeType = "image/png";
+            switch (filename?.split(".").pop()?.toLowerCase()) {
+                case "jpg":
+                case "jpeg":
+                    mimeType = "image/jpeg";
+                    break;
+                case "gif":
+                    mimeType = "image/gif";
+                    break;
+                case "webp":
+                    mimeType = "image/webp";
+                    break;
+                case "svg":
+                    mimeType = "image/svg+xml";
+                    break;
+            }
+            file = new File([processedImage], filename!, { type: mimeType });
+        }
+
+        UploadHandler.promptToUpload([file], ChannelStore.getChannel(channelId), 0);
+        return;
+    } else if (shiftKey) {
+        if (!messageContent.endsWith(" ") || !messageContent.endsWith("\n")) messageContent += " ";
+        messageContent += sticker.image;
+
+        if (ctrlKey && textEditor && textEditor.insertText && typeof textEditor.insertText === "function") {
+            textEditor.insertText(messageContent);
+        } else {
+            MessageUtils._sendMessage(channelId, {
+                content: sticker.image
+            }, messageOptions || {});
+        }
+    } else {
+        MessageUtils._sendMessage(channelId, {
+            content: `${messageContent} ${sticker.image}`.trim()
+        }, messageOptions || {});
+    }
 }

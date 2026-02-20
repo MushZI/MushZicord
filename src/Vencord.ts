@@ -34,18 +34,17 @@ import { debounce } from "@shared/debounce";
 import { IS_WINDOWS } from "@utils/constants";
 import { createAndAppendStyle } from "@utils/css";
 import { StartAt } from "@utils/types";
-import { SettingsRouter } from "@webpack/common";
 
 import { get as dsGet } from "./api/DataStore";
-import { popNotice, showNotice } from "./api/Notices";
 import { NotificationData, showNotification } from "./api/Notifications";
 import { initPluginManager, PMLogger, startAllPlugins } from "./api/PluginManager";
 import { PlainSettings, Settings, SettingsStore } from "./api/Settings";
 import { getCloudSettings, putCloudSettings, shouldCloudSync } from "./api/SettingsSync/cloudSync";
 import { localStorage } from "./utils/localStorage";
 import { relaunch } from "./utils/native";
-import { checkForUpdates, isOutdated as getIsOutdated, update, UpdateLogger } from "./utils/updater";
+import { checkForUpdates, update, UpdateLogger } from "./utils/updater";
 import { onceReady } from "./webpack";
+import { openUserSettingsPanel } from "./webpack/common";
 import { patches } from "./webpack/patchWebpack";
 
 if (IS_REPORTER) {
@@ -66,7 +65,7 @@ async function syncSettings() {
                 title: "Cloud Settings",
                 body: "Cloud sync was disabled because this account isn't connected to the cloud App. You can enable it again by connecting this account in Cloud Settings. (note: it will store your preferences separately)",
                 color: "var(--yellow-360)",
-                onClick: () => SettingsRouter.openUserSettings("equicord_cloud_panel")
+                onClick: () => openUserSettingsPanel("equicord_cloud")
             });
             // Disable cloud sync globally
             Settings.cloud.authenticated = false;
@@ -85,7 +84,7 @@ async function syncSettings() {
             body: "We've noticed you have cloud integrations enabled in another client! Due to limitations, you will " +
                 "need to re-authenticate to continue using them. Click here to go to the settings page to do so!",
             color: "var(--yellow-360)",
-            onClick: () => SettingsRouter.openUserSettings("equicord_cloud_panel")
+            onClick: () => openUserSettingsPanel("equicord_cloud")
         });
         return;
     }
@@ -141,66 +140,28 @@ async function runUpdateCheck() {
 
     try {
         const isOutdated = await checkForUpdates();
-        if (IS_DISCORD_DESKTOP) VencordNative.tray.setUpdateState(isOutdated);
         if (!isOutdated) return;
 
         if (Settings.autoUpdate) {
             await update();
             if (Settings.autoUpdateNotification) {
-                if (notifiedForUpdatesThisSession) return;
-                notifiedForUpdatesThisSession = true;
-
-                showNotice(
-                    "Equicord has been updated!",
-                    "Restart",
-                    relaunch
-                );
+                notify({
+                    title: "Equicord has been updated!",
+                    body: "Click here to restart",
+                    onClick: relaunch
+                });
             }
             return;
         }
 
-        if (notifiedForUpdatesThisSession) return;
-        notifiedForUpdatesThisSession = true;
-
-        showNotice(
-            "A new version of Equicord is available!",
-            "View Update",
-            () => openSettingsTabModal(UpdaterTab!)
-        );
+        notify({
+            title: "A Equicord update is available!",
+            body: "Click here to view the update",
+            onClick: () => openSettingsTabModal(UpdaterTab!)
+        });
     } catch (err) {
         UpdateLogger.error("Failed to check for updates", err);
     }
-}
-
-function initTrayIpc() {
-    if (IS_WEB || IS_UPDATER_DISABLED) return;
-
-    VencordNative.tray.onCheckUpdates(async () => {
-        try {
-            const isOutdated = await checkForUpdates();
-            VencordNative.tray.setUpdateState(isOutdated);
-
-            if (isOutdated) {
-                showNotice("An Equicord update is available!", "View Update", () => openSettingsTabModal(UpdaterTab!));
-            } else {
-                showNotice("No updates available, you're on the latest version!", "OK", popNotice);
-            }
-        } catch (err) {
-            UpdateLogger.error("Failed to check for updates from tray", err);
-            showNotice("Failed to check for updates, check the console for more info", "OK", popNotice);
-        }
-    });
-
-    VencordNative.tray.onRepair(async () => {
-        try {
-            await update();
-            relaunch();
-        } catch (err) {
-            UpdateLogger.error("Failed to repair Equicord", err);
-        }
-    });
-
-    VencordNative.tray.setUpdateState(getIsOutdated);
 }
 
 async function init() {
@@ -208,7 +169,6 @@ async function init() {
     startAllPlugins(StartAt.WebpackReady);
 
     syncSettings();
-    initTrayIpc();
 
     if (!IS_DEV && !IS_WEB && !IS_UPDATER_DISABLED) {
         runUpdateCheck();

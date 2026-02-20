@@ -17,7 +17,7 @@ export default definePlugin({
         {
             find: "#{intl::ADD_FRIEND})}),(",
             replacement: {
-                match: /"header",.{0,30}children:\[.*?\{\}\)/,
+                match: /header,children:\[.*?\{\}\)/,
                 replace: "$&,$self.FriendCodesPanel"
             },
             noWarn: true,

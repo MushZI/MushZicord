@@ -23,17 +23,18 @@ import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
-import { findComponentByCodeLazy, findCssClassesLazy, findStoreLazy } from "@webpack";
-import { Constants, React, RestAPI, SettingsRouter, Tooltip } from "@webpack/common";
+import { findByPropsLazy, findComponentByCodeLazy, findStoreLazy } from "@webpack";
+import { Constants, React, RestAPI, Tooltip } from "@webpack/common";
 
 import { RenameButton } from "./components/RenameButton";
 import { Session, SessionInfo } from "./types";
 import { fetchNamesFromDataStore, getDefaultName, GetOsColor, GetPlatformIcon, savedSessionsCache, saveSessionsToDataStore } from "./utils";
 
 const AuthSessionsStore = findStoreLazy("AuthSessionsStore");
+const UserSettingsModal = findByPropsLazy("saveAccountChanges", "open");
 
-const TimestampClasses = findCssClassesLazy("timestamp", "blockquoteContainer");
-const SessionIconClasses = findCssClassesLazy("sessionIcon");
+const TimestampClasses = findByPropsLazy("timestamp", "blockquoteContainer");
+const SessionIconClasses = findByPropsLazy("sessionIcon");
 
 const BlobMask = findComponentByCodeLazy("!1,lowerBadgeSize:");
 
@@ -65,17 +66,17 @@ export default definePlugin({
             replacement: [
                 // Replace children with a single label with state
                 {
-                    match: /({variant:"eyebrow",className:\i\.\i,children:).{70,110}{children:"\\xb7"}\),\(0,\i\.\i\)\("span",{children:\i\[\d+\]}\)\]}\)\]/,
+                    match: /({variant:"eyebrow",className:\i\.sessionInfoRow,children:).{70,110}{children:"\\xb7"}\),\(0,\i\.\i\)\("span",{children:\i\[\d+\]}\)\]}\)\]/,
                     replace: "$1$self.renderName(arguments[0])"
                 },
                 {
-                    match: /({variant:"text-sm\/medium",className:\i\.\i,children:.{70,110}{children:"\\xb7"}\),\(0,\i\.\i\)\("span",{children:)(\i\[\d+\])}/,
-                    replace: "$1$self.renderTimestamp({...arguments[0],timeLabel:$2})}"
+                    match: /({variant:"text-sm\/medium",className:\i\.sessionInfoRow,children:.{70,110}{children:"\\xb7"}\),\(0,\i\.\i\)\("span",{children:)(\i\[\d+\])}/,
+                    replace: "$1$self.renderTimestamp({ ...arguments[0], timeLabel: $2 })}"
                 },
                 // Replace the icon
                 {
-                    match: /children:\[(?=.{0,125}?width:"32")(?<=,icon:(\i)\}.+?)/,
-                    replace: "children:[$self.renderIcon({...arguments[0],DeviceIcon:$1}),false&&"
+                    match: /\.legacySession\),children:\[(?<=,icon:(\i)\}.+?)/,
+                    replace: "$& $self.renderIcon({ ...arguments[0], DeviceIcon: $1 }), false &&"
                 }
             ]
         }
@@ -174,7 +175,7 @@ export default definePlugin({
                 title: "BetterSessions",
                 body: `New session:\n${session.client_info.os} · ${session.client_info.platform} · ${session.client_info.location}`,
                 permanent: true,
-                onClick: () => SettingsRouter.openUserSettings("sessions_panel")
+                onClick: () => UserSettingsModal.open("Sessions")
             });
         }
 

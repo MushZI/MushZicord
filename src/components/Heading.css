@@ -1,40 +1,51 @@
 .vc-h1,
-.vc-h2,
+.vc-h2 {
+    color: var(--text-strong);
+    font-weight: 600;
+}
+
 .vc-h3,
 .vc-h4,
 .vc-h5 {
     color: var(--text-strong);
-    font-family: var(--font-display);
 }
 
 .vc-h1 {
     font-size: 20px;
-    font-weight: 600;
-    line-height: 1.2;
+    line-height: 24px
 }
 
 .vc-h2 {
     font-size: 16px;
-    font-weight: 600;
-    line-height: 1.25;
+    line-height: 20px
 }
 
 .vc-h3 {
-    font-size: 16px;
     font-weight: 500;
-    line-height: 1.25;
+    line-height: 24px
+}
+
+.vc-h3,
+.vc-h4 {
+    font-size: 16px
 }
 
 .vc-h4 {
-    font-size: 16px;
     font-weight: 600;
-    line-height: 1.25;
+    letter-spacing: .3px
+}
+
+.vc-h4,
+.vc-h5 {
+    line-height: 20px
 }
 
 .vc-h5 {
+    color: var(--text-strong);
     font-size: 16px;
     font-weight: 500;
-    line-height: 1.25;
+    margin-bottom: 8px;
+    text-transform: unset
 }
 
 .vc-h1-defaultMargin,

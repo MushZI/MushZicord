@@ -575,10 +575,6 @@
     "u32": {
       "name": "u32",
       "id": "1063237286818488351"
-    },
-    "prism": {
-      "name": "prism",
-      "id": "390884143749136386"
     }
   },
   "equicord": {
@@ -1138,8 +1134,8 @@
       "name": "Vei",
       "id": "239414094799699968"
     },
-    "prism": {
-      "name": "prism",
+    "Prism": {
+      "name": "Prism",
       "id": "390884143749136386"
     },
     "square": {
@@ -1173,18 +1169,6 @@
     "busyboxkitty": {
       "name": "busyboxkitty",
       "id": "1312185484159483948"
-    },
-    "BioTomateDE": {
-      "name": "BioTomateDE",
-      "id": "553499669226061844"
-    },
-    "korzi": {
-      "name": "korzi",
-      "id": "740966310875365416"
-    },
-    "davri": {
-      "name": "Davri",
-      "id": "457579346282938368"
     }
   }
 }

@@ -8,7 +8,10 @@ import { addContextMenuPatch, removeContextMenuPatch } from "@api/ContextMenu";
 import { ScreenshareIcon } from "@components/Icons";
 import { Devs } from "@utils/constants";
 import definePlugin from "@utils/types";
+import { findByPropsLazy } from "@webpack";
 import { Menu, UploadHandler } from "@webpack/common";
+
+const OptionClasses = findByPropsLazy("optionName", "optionIcon", "optionLabel");
 
 let recoder: MediaRecorder;
 
@@ -26,9 +29,9 @@ function startRecording(children) {
         <Menu.MenuItem
             id="start-recording"
             label={
-                <div>
-                    <ScreenshareIcon height={24} width={24} />
-                    <div>Start Recording</div>
+                <div className={OptionClasses.optionLabel}>
+                    <ScreenshareIcon className={OptionClasses.optionIcon} height={24} width={24} />
+                    <div className={OptionClasses.optionName}>Start Recording</div>
                 </div>
             }
             action={async () => {
@@ -47,9 +50,9 @@ function stopRecording(children, props) {
         <Menu.MenuItem
             id="stop-recording"
             label={
-                <div>
-                    <ScreenshareIcon height={24} width={24} />
-                    <div>Stop Recording</div>
+                <div className={OptionClasses.optionLabel}>
+                    <ScreenshareIcon className={OptionClasses.optionIcon} height={24} width={24} />
+                    <div className={OptionClasses.optionName}>Stop Recording</div>
                 </div>
             }
             action={() => {

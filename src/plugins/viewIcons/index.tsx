@@ -196,18 +196,21 @@ export default definePlugin({
     patches: [
         // Avatar component used in User DMs "User Profile" popup in the right and User Profile Modal pfp
         {
-            find: "imageClassName:null!=",
-            replacement: {
-                match: /avatarSrc:(\i),eventHandlers:(\i).+?"div",.{0,100}className:\i,/,
-                replace: "$&style:{cursor:\"pointer\"},onClick:()=>{$self.openAvatar($1)},",
-            }
+            find: ".overlay:void 0,status:",
+            replacement: [
+                {
+                    match: /avatarSrc:(\i),eventHandlers:(\i).+?"div",.{0,100}className:\i,/,
+                    replace: "$&style:{cursor:\"pointer\"},onClick:()=>{$self.openAvatar($1)},",
+                }
+            ],
+            all: true
         },
         // Banners
         {
             find: 'backgroundColor:"COMPLETE"',
             replacement: {
-                match: /(overflow:"visible",.{0,125}?!1\),)style:{(?=.+?backgroundImage:null!=(\i)\?`url\(\$\{\2\}\))/,
-                replace: (_, rest, bannerSrc) => `${rest}onClick:()=>${bannerSrc}!=null&&$self.openBanner(${bannerSrc}),style:{cursor:${bannerSrc}!=null?"pointer":void 0,`
+                match: /(\.banner,.+?),style:{(?=.+?backgroundImage:null!=(\i)\?"url\("\.concat\(\2,)/,
+                replace: (_, rest, bannerSrc) => `${rest},onClick:()=>${bannerSrc}!=null&&$self.openBanner(${bannerSrc}),style:{cursor:${bannerSrc}!=null?"pointer":void 0,`
             }
         },
         // Group DMs top small & large icon
@@ -221,7 +224,7 @@ export default definePlugin({
         },
         // User DMs top small icon
         {
-            find: ".channel.getRecipientId(),",
+            find: ".cursorPointer:null,children",
             replacement: {
                 match: /(?=,src:(\i.getAvatarURL\(.+?[)]))/,
                 replace: (_, avatarUrl) => `,onClick:()=>$self.openAvatar(${avatarUrl})`

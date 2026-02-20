@@ -6,10 +6,7 @@
 
 import { defaultAudioNames, playAudio } from "@api/AudioPlayer";
 import { definePluginSettings } from "@api/Settings";
-import { Divider } from "@components/Divider";
-import ErrorBoundary from "@components/ErrorBoundary";
-import { Heading } from "@components/Heading";
-import { Paragraph } from "@components/Paragraph";
+import { Divider, ErrorBoundary, Heading, Paragraph } from "@components/index";
 import { Logger } from "@utils/Logger";
 import { makeRange, OptionType } from "@utils/types";
 import { Button, ColorPicker, ContextMenuApi, Menu, Select, Slider, TextInput, useEffect, useRef, useState } from "@webpack/common";
@@ -367,6 +364,7 @@ function validateQuestButtonSetting() {
 
 function validateDisableQuestSetting() {
     const {
+        disableQuestsEverything,
         disableQuestsDiscoveryTab,
         disableQuestsFetchingQuests,
         disableQuestsDirectMessagesTab,
@@ -451,7 +449,7 @@ function QuestButtonSettings(): JSX.Element {
         { label: "Profile Collectibles", value: "collectibles", selected: questRewardIncludeCollectibles },
     ];
 
-    const [currentRewardsOptions, setCurrentRewardsOptions] = useState(questButtonRewardDisplayOptions.filter(option => option.selected).map(option => option.value));
+    const [currentRewardsOptions, setCurrentRewardsOptions] = useState(questButtonRewardDisplayOptions.filter(option => option.selected));
     const [currentQuestButtonDisplay, setCurrentQuestButtonDisplay] = useState((questButtonDisplayOptions.find(option => option.value === questButtonDisplay) as RadioOption));
     const [currentQuestButtonUnclaimed, setCurrentQuestButtonUnclaimed] = useState((questButtonUnclaimedOptions.find(option => option.value === questButtonUnclaimed) as RadioOption));
     const [currentQuestButtonLeftClickAction, setCurrentQuestButtonLeftClickAction] = useState<"open-quests" | "plugin-settings" | "context-menu" | "nothing">(questButtonLeftClickAction as "open-quests" | "plugin-settings" | "context-menu" | "nothing");
@@ -460,37 +458,37 @@ function QuestButtonSettings(): JSX.Element {
     const [currentBadgeColor, setCurrentBadgeColor] = useState((questButtonBadgeColor as number | null));
     const [dummySelected, setDummySelected] = useState(false);
 
-    function updateSettingsTruthy(enabled: string[]) {
+    function updateSettingsTruthy(enabled: DynamicDropdownSettingOption[]) {
+        const enabledValues = enabled.map(option => option.value);
+
         questButtonRewardDisplayOptions.forEach(option => {
-            option.selected = enabled.includes(option.value);
+            option.selected = enabledValues.includes(option.value);
         });
 
-        settings.store.questRewardIncludeRewardCode = enabled.includes("reward-code");
-        settings.store.questRewardIncludeNitroCode = enabled.includes("nitro-code");
-        settings.store.questRewardIncludeCollectibles = enabled.includes("collectibles");
-        settings.store.questRewardIncludeInGame = enabled.includes("in-game");
-        settings.store.questRewardIncludeOrbs = enabled.includes("orbs");
+        settings.store.questRewardIncludeRewardCode = enabledValues.includes("reward-code");
+        settings.store.questRewardIncludeNitroCode = enabledValues.includes("nitro-code");
+        settings.store.questRewardIncludeCollectibles = enabledValues.includes("collectibles");
+        settings.store.questRewardIncludeInGame = enabledValues.includes("in-game");
+        settings.store.questRewardIncludeOrbs = enabledValues.includes("orbs");
 
         setCurrentRewardsOptions(enabled);
         validateAndOverwriteIgnoredQuests();
     }
 
     function handleQuestRewardDisplayChange(values: Array<DynamicDropdownSettingOption | string>) {
-        const parsedValues = values.map(v => typeof v === "string" ? questButtonRewardDisplayOptions.find(option => option.value === v) as DynamicDropdownSettingOption : v);
-
         if (values.length === 0) {
             updateSettingsTruthy([]);
             return;
         }
 
-        const selectedOption = values.length > currentRewardsOptions.length ? values[values.length - 1] as string : currentRewardsOptions.find(v => !values.includes(v)) as string;
-        const stringlessValues = parsedValues.filter(v => v.value !== selectedOption);
+        const stringlessValues = values.filter(v => typeof v !== "string") as DynamicDropdownSettingOption[];
+        const selectedOption = values.find(v => typeof v === "string") as string;
         const option = questButtonRewardDisplayOptions.find(option => option.value === selectedOption) as DynamicDropdownSettingOption;
 
         if (option.selected) {
-            updateSettingsTruthy(stringlessValues.filter(v => v.value !== selectedOption).map(v => v.value));
+            updateSettingsTruthy(stringlessValues.filter(v => v.value !== selectedOption));
         } else {
-            updateSettingsTruthy([...stringlessValues.map(v => v.value), option.value]);
+            updateSettingsTruthy([...stringlessValues, option]);
         }
     }
 
@@ -561,7 +559,7 @@ function QuestButtonSettings(): JSX.Element {
                             </Heading>
                             <Select
                                 options={questButtonClickOptions}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="top"
                                 serialize={String}
                                 isSelected={(value: string) => value === currentQuestButtonLeftClickAction}
@@ -574,7 +572,7 @@ function QuestButtonSettings(): JSX.Element {
                             </Heading>
                             <Select
                                 options={questButtonClickOptions}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="top"
                                 serialize={String}
                                 isSelected={(value: string) => value === currentQuestButtonMiddleClickAction}
@@ -587,7 +585,7 @@ function QuestButtonSettings(): JSX.Element {
                             </Heading>
                             <Select
                                 options={questButtonClickOptions}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="top"
                                 serialize={String}
                                 isSelected={(value: string) => value === currentQuestButtonRightClickAction}
@@ -644,7 +642,7 @@ function QuestButtonSettings(): JSX.Element {
                             <Heading className={q("form-subtitle", "form-subtitle-spacier")}>
                                 Included Reward Types
                             </Heading>
-                            <Paragraph className={q("form-description", "margin-bottom-8")}>
+                            <Paragraph className={q("form-description")}>
                                 Only count Quests with these reward types as unclaimed when determining button
                                 visibility, badge count, and when playing the alert sound.
                             </Paragraph>
@@ -652,12 +650,10 @@ function QuestButtonSettings(): JSX.Element {
                                 placeholder="Select which reward types to include in the unclaimed count..."
                                 feedback="There's no supported Quest feature by that name."
                                 className={q("select")}
-                                optionClassName={q("affixless-select-popout-option")}
                                 maxVisibleItems={questButtonRewardDisplayOptions.length}
-                                maxOptionsVisible={questButtonRewardDisplayOptions.length} // Mana Select Prop
                                 clearable={true}
                                 multi={true}
-                                value={currentRewardsOptions}
+                                value={currentRewardsOptions as any}
                                 options={questButtonRewardDisplayOptions}
                                 onChange={handleQuestRewardDisplayChange}
                                 closeOnSelect={false}
@@ -729,73 +725,70 @@ function DisableQuestsSetting(): JSX.Element {
     const disableOptions = options.filter(option => option.type === "disable");
     const modificationOptions = options.filter(option => option.type === "modification");
     const everythingOnly = options.find(option => option.value === "everything") as DynamicDropdownSettingOption;
-    const [currentValue, setCurrentValue] = useState(options.filter(option => option.selected).map(option => option.value));
+    const [currentValue, setCurrentValue] = useState(options.filter(option => option.selected));
 
-    function updateSettingsTruthy(enabled: string[]) {
+    function updateSettingsTruthy(enabled: DynamicDropdownSettingOption[]) {
+        const enabledValues = enabled.map(option => option.value);
+
         options.forEach(option => {
-            option.selected = enabled.includes(option.value);
+            option.selected = enabledValues.includes(option.value);
         });
 
         const redoAutoFetch = (
-            settings.store.disableQuestsEverything !== enabled.includes("everything") ||
-            settings.store.disableQuestsFetchingQuests !== enabled.includes("fetching")
+            settings.store.disableQuestsEverything !== enabledValues.includes("everything") ||
+            settings.store.disableQuestsFetchingQuests !== enabledValues.includes("fetching")
         );
 
-        settings.store.disableQuestsEverything = enabled.includes("everything");
-        settings.store.disableQuestsDiscoveryTab = enabled.includes("discovery");
-        settings.store.disableQuestsFetchingQuests = enabled.includes("fetching");
-        settings.store.disableQuestsDirectMessagesTab = enabled.includes("dms");
-        settings.store.disableQuestsPageSponsoredBanner = enabled.includes("sponsored-banner");
-        settings.store.disableQuestsPopupAboveAccountPanel = enabled.includes("popup");
-        settings.store.disableQuestsBadgeOnUserProfiles = enabled.includes("badge");
-        settings.store.disableQuestsGiftInventoryRelocationNotice = enabled.includes("inventory");
-        settings.store.disableFriendsListActiveNowPromotion = enabled.includes("friends-list");
-        settings.store.disableMembersListActivelyPlayingIcon = enabled.includes("members-list");
-        settings.store.makeMobileQuestsDesktopCompatible = enabled.includes("mobile-desktop-compatible");
-        settings.store.completeVideoQuestsInBackground = enabled.includes("video-quests-background");
-        settings.store.completeGameQuestsInBackground = enabled.includes("game-quests-background");
-        settings.store.completeAchievementQuestsInBackground = enabled.includes("achievement-quests-background");
-        settings.store.notifyOnQuestComplete = enabled.includes("notify-on-complete");
+        settings.store.disableQuestsEverything = enabledValues.includes("everything");
+        settings.store.disableQuestsDiscoveryTab = enabledValues.includes("discovery");
+        settings.store.disableQuestsFetchingQuests = enabledValues.includes("fetching");
+        settings.store.disableQuestsDirectMessagesTab = enabledValues.includes("dms");
+        settings.store.disableQuestsPageSponsoredBanner = enabledValues.includes("sponsored-banner");
+        settings.store.disableQuestsPopupAboveAccountPanel = enabledValues.includes("popup");
+        settings.store.disableQuestsBadgeOnUserProfiles = enabledValues.includes("badge");
+        settings.store.disableQuestsGiftInventoryRelocationNotice = enabledValues.includes("inventory");
+        settings.store.disableFriendsListActiveNowPromotion = enabledValues.includes("friends-list");
+        settings.store.disableMembersListActivelyPlayingIcon = enabledValues.includes("members-list");
+        settings.store.makeMobileQuestsDesktopCompatible = enabledValues.includes("mobile-desktop-compatible");
+        settings.store.completeVideoQuestsInBackground = enabledValues.includes("video-quests-background");
+        settings.store.completeGameQuestsInBackground = enabledValues.includes("game-quests-background");
+        settings.store.completeAchievementQuestsInBackground = enabledValues.includes("achievement-quests-background");
+        settings.store.notifyOnQuestComplete = enabledValues.includes("notify-on-complete");
 
         redoAutoFetch ? checkAutoFetchInterval(settings.store.fetchingQuestsInterval) : null;
-        setCurrentValue(enabled.map(value => typeof value === "string" ? value : (value as any).value));
+        setCurrentValue(enabled);
     }
 
     function handleChange(values: Array<DynamicDropdownSettingOption | string>) {
-        const parsedValues = values.map(v => typeof v === "string" ? options.find(option => option.value === v) as DynamicDropdownSettingOption : v);
-
         if (values.length === 0) {
             updateSettingsTruthy([]);
             return;
         }
 
-        const selectedOption = values.length > currentValue.length ? values[values.length - 1] as string : currentValue.find(v => !values.includes(v)) as string;
-        const stringlessValues = parsedValues.filter(v => v.value !== selectedOption);
+        const stringlessValues = values.filter(v => typeof v !== "string") as DynamicDropdownSettingOption[];
+        const selectedOption = values.find(v => typeof v === "string") as string;
 
         if (selectedOption === "everything") {
-            if (everythingOnly.selected) {
-                // If was already selected when clicked.
-                updateSettingsTruthy(stringlessValues.filter(option => option.value !== selectedOption).map(option => option.value));
+            if (everythingOnly.selected) { // If was already selected when clicked.
+                updateSettingsTruthy([...stringlessValues.filter(option => option.type !== "disable")]);
             } else {
-                updateSettingsTruthy([...stringlessValues.filter(option => option.type !== "disable").map(option => option.value), selectedOption]);
+                updateSettingsTruthy([...stringlessValues.filter(option => option.type !== "disable"), everythingOnly]);
             }
         } else if (disableOptions.some(option => option.value === selectedOption)) {
             const option = disableOptions.find(option => option.value === selectedOption) as DynamicDropdownSettingOption;
 
-            if (option.selected) {
-                // If was already selected when clicked.
-                updateSettingsTruthy(stringlessValues.filter(option => option.value !== selectedOption).map(option => option.value));
+            if (option.selected) { // If was already selected when clicked.
+                updateSettingsTruthy(stringlessValues.filter(option => option.value !== selectedOption && option.value !== everythingOnly.value));
             } else {
-                updateSettingsTruthy([...stringlessValues.map(option => option.value), selectedOption]);
+                updateSettingsTruthy([...stringlessValues.filter(option => option.value !== everythingOnly.value), option]);
             }
         } else if (modificationOptions.some(option => option.value === selectedOption)) {
             const option = modificationOptions.find(option => option.value === selectedOption) as DynamicDropdownSettingOption;
 
-            if (option.selected) {
-                // If was already selected when clicked.
-                updateSettingsTruthy(stringlessValues.map(option => option.value));
+            if (option.selected) { // If was already selected when clicked.
+                updateSettingsTruthy(stringlessValues.filter(option => option.value !== selectedOption));
             } else {
-                updateSettingsTruthy([...stringlessValues.map(option => option.value), selectedOption]);
+                updateSettingsTruthy([...stringlessValues, option]);
             }
         }
     }
@@ -808,7 +801,7 @@ function DisableQuestsSetting(): JSX.Element {
                     <Heading className={q("form-title")}>
                         Quest Features
                     </Heading>
-                    <Paragraph className={q("form-description", "margin-bottom-8")}>
+                    <Paragraph className={q("form-description")}>
                         Modify specific Quest features.
                         <br /><br />
                         The <span className={q("inline-code-block")}>Disable Quest Popup Above Account Panel</span> option
@@ -835,12 +828,10 @@ function DisableQuestsSetting(): JSX.Element {
                         placeholder="Select which Quest features to modify."
                         feedback="There's no supported Quest feature by that name."
                         className={q("select")}
-                        optionClassName={q("affixless-select-popout-option")}
                         maxVisibleItems={options.length}
-                        maxOptionsVisible={options.length} // Mana Select Prop
                         clearable={true}
                         multi={true}
-                        value={currentValue}
+                        value={currentValue as any}
                         options={options}
                         onChange={handleChange}
                         closeOnSelect={false}
@@ -1006,7 +997,7 @@ function RestyleQuestsSetting() {
                             </Heading>
                             <Select
                                 options={gradientOptions}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="top"
                                 serialize={String}
                                 isSelected={(value: string) => value === restyleQuestsGradientValue}
@@ -1019,7 +1010,7 @@ function RestyleQuestsSetting() {
                             </Heading>
                             <Select
                                 options={preloadOptions}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="top"
                                 serialize={String}
                                 isSelected={(value: boolean) => value === restyleQuestsPreloadValue}
@@ -1168,7 +1159,7 @@ function ReorderQuestsSetting(): JSX.Element {
                             </Heading>
                             <Select
                                 options={getSubsortOptions("unclaimed")}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: string) => value === unclaimedSubsort}
@@ -1183,7 +1174,7 @@ function ReorderQuestsSetting(): JSX.Element {
                             </Heading>
                             <Select
                                 options={getSubsortOptions("claimed")}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: string) => value === claimedSubsort}
@@ -1200,7 +1191,7 @@ function ReorderQuestsSetting(): JSX.Element {
                             </Heading>
                             <Select
                                 options={getSubsortOptions("ignored")}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: string) => value === ignoredSubsort}
@@ -1215,7 +1206,7 @@ function ReorderQuestsSetting(): JSX.Element {
                             </Heading>
                             <Select
                                 options={getSubsortOptions("expired")}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: string) => value === expiredSubsort}
@@ -1235,7 +1226,7 @@ function ReorderQuestsSetting(): JSX.Element {
                                     { label: "Shared: All accounts on this client share ignores.", value: "shared" },
                                     { label: "Private: All accounts on this client have separate ignores.", value: "private" }
                                 ]}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: string) => value === ignoredQuestProfile}
@@ -1253,7 +1244,7 @@ function ReorderQuestsSetting(): JSX.Element {
                                     { label: "Yes", value: true },
                                     { label: "No", value: false }
                                 ]}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: boolean) => value === rememberQuestPageSort}
@@ -1269,7 +1260,7 @@ function ReorderQuestsSetting(): JSX.Element {
                                     { label: "Yes", value: true },
                                     { label: "No", value: false }
                                 ]}
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 popoutPosition="bottom"
                                 serialize={String}
                                 isSelected={(value: boolean) => value === rememberQuestPageFilters}
@@ -1360,27 +1351,24 @@ function FetchingQuestsSetting(): JSX.Element {
         };
     }
 
-    function getAllIntervalOptions(currentValue: number) {
-        const currentOption = createIntervalSelectOptionFromValue(currentValue);
-        const otherOptions = resolvedIntervals.filter(option => option.value !== currentValue);
+    function getAllIntervalOptions(currentValue: SelectOption) {
+        const otherOptions = resolvedIntervals.filter(option => option.value !== currentValue.value);
 
         return [
-            currentOption,
+            currentValue,
             ...otherOptions
         ].sort((a, b) => Number(a.value) - Number(b.value));
     }
 
-    function getAllAlertOptions(currentValue: string | null) {
-        const otherOptions = currentValue ? resolvedSounds.filter(option => option.value !== currentValue) : resolvedSounds;
+    function getAllAlertOptions(currentValue: SelectOption | null) {
+        const otherOptions = currentValue ? resolvedSounds.filter(option => option.value !== currentValue.value) : resolvedSounds;
 
         if (!currentValue) {
             return otherOptions.sort((a, b) => a.label.localeCompare(b.label));
         }
 
-        const currentOption = createAlertSelectOptionFromValue(currentValue);
-
         return [
-            currentOption!,
+            currentValue,
             ...otherOptions
         ].sort((a, b) => a.label.localeCompare(b.label));
     }
@@ -1479,10 +1467,10 @@ function FetchingQuestsSetting(): JSX.Element {
     }
 
     const resolvedIntervalValue = fetchingQuestsInterval;
-    const [currentIntervalSelection, setCurrentSelection] = useState(resolvedIntervalValue);
+    const [currentIntervalSelection, setCurrentSelection] = useState(createIntervalSelectOptionFromValue(resolvedIntervalValue));
     const [currentIntervalOptions, setCurrentIntervalOptions] = useState(getAllIntervalOptions(currentIntervalSelection));
     const resolvedAlertValue = fetchingQuestsAlert;
-    const [currentAlertSelection, setCurrentAlertSelection] = useState<string | null>(resolvedAlertValue);
+    const [currentAlertSelection, setCurrentAlertSelection] = useState<SelectOption | null>(createAlertSelectOptionFromValue(resolvedAlertValue));
     const [currentAlertOptions, setCurrentAlertOptions] = useState(getAllAlertOptions(currentAlertSelection));
     // Needed to update the playing state of the preview button.
     const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -1534,9 +1522,8 @@ function FetchingQuestsSetting(): JSX.Element {
                                 filter={(options, query) => options}
                                 placeholder="Select or type an interval between 30 minutes and 12 hours."
                                 feedback="Intervals must be between 30 minutes and 12 hours."
-                                className={q("select", "titled-select")}
+                                className={q("select")}
                                 maxVisibleItems={resolvedIntervals.length + 1}
-                                maxOptionsVisible={resolvedIntervals.length + 1}
                                 clearable={false}
                                 multi={false}
                                 value={currentIntervalSelection as any}
@@ -1545,12 +1532,12 @@ function FetchingQuestsSetting(): JSX.Element {
                                 onSearchChange={handleScaleSearchChange}
                                 onClose={() => { setCurrentIntervalOptions(getAllIntervalOptions(currentIntervalSelection)); }}
                                 onChange={value => {
-                                    const val = value as number;
-                                    settings.store.fetchingQuestsInterval = val;
+                                    const option = currentIntervalOptions.find(o => o.value === value) as SelectOption;
+                                    settings.store.fetchingQuestsInterval = option.value as number;
 
-                                    setCurrentSelection(val);
-                                    setCurrentIntervalOptions(getAllIntervalOptions(val));
-                                    checkAutoFetchInterval(val);
+                                    setCurrentSelection(option);
+                                    setCurrentIntervalOptions(getAllIntervalOptions(option));
+                                    checkAutoFetchInterval(option.value as number);
                                 }}
                             />
                         </div>
@@ -1567,7 +1554,7 @@ function FetchingQuestsSetting(): JSX.Element {
                                     filter={(options, query) => options}
                                     placeholder="Select a sound or provide a custom sound URL."
                                     feedback="Sound not found, or URL is not from a supported domain."
-                                    className={q("select", "titled-select")}
+                                    className={q("select")}
                                     clearable={true}
                                     multi={false}
                                     maxVisibleItems={7}
@@ -1577,27 +1564,27 @@ function FetchingQuestsSetting(): JSX.Element {
                                     onSearchChange={handleAlertSearchChange}
                                     onClose={() => { setCurrentAlertOptions(getAllAlertOptions(currentAlertSelection)); }}
                                     onChange={value => {
-                                        const val = value as string | null;
-                                        settings.store.fetchingQuestsAlert = val as any;
+                                        const option = currentAlertOptions.find(o => o.value === value) as SelectOption;
+                                        settings.store.fetchingQuestsAlert = value ? option.value as string : null as any;
 
-                                        setCurrentAlertSelection(val);
-                                        setCurrentAlertOptions(getAllAlertOptions(val));
+                                        setCurrentAlertSelection(value ? option : null);
+                                        setCurrentAlertOptions(getAllAlertOptions(option));
                                     }}
                                 />
                             </div>
                             <div
                                 className={q("inline-group-item", "alert-icon", { "playing-audio": !!isPlaying })}
                                 onClick={() => {
-                                    if (currentAlertSelection) {
+                                    if (currentAlertSelection?.value) {
                                         if (activePlayer.current) {
                                             clearActivePlayer();
                                         } else {
-                                            activePlayer.current = playAudio(currentAlertSelection, { onEnded: clearActivePlayer, volume: settings.store.fetchingQuestsAlertVolume });
+                                            activePlayer.current = playAudio(currentAlertSelection.value as string, { onEnded: clearActivePlayer, volume: settings.store.fetchingQuestsAlertVolume });
                                             setIsPlaying(true);
                                         }
                                     }
                                 }}
-                                style={{ cursor: currentAlertSelection ? "pointer" : "default" }}
+                                style={{ cursor: currentAlertSelection && currentAlertSelection.value ? "pointer" : "default" }}
                             >
                                 {SoundIcon(24, 24)}
                             </div>
@@ -1972,11 +1959,5 @@ export const settings = definePluginSettings({
         description: "An array of Quest IDs that are ignored.",
         default: {} as Record<string, string[]>,
         hidden: true,
-    },
-    resumeQuestIDs: {
-        type: OptionType.CUSTOM,
-        description: "An array of Quest IDs that are being auto-completed in the background.",
-        default: { "watch": [], "play": [], "achievement": [] } as Record<"watch" | "play" | "achievement", string[]>, // Type to Quest ID
-        hidden: true,
-    },
+    }
 });

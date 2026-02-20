@@ -92,8 +92,7 @@ export default definePlugin({
         },
         // Slate
         {
-            // Same find as FullUserInChatbox
-            find: '"text":"locked"',
+            find: ".userTooltip,children",
             replacement: [
                 {
                     match: /let\{id:(\i),guildId:\i,channelId:(\i)[^}]*\}.*?\.\i,{(?=children)/,
@@ -107,8 +106,8 @@ export default definePlugin({
             find: 'tutorialId:"whos-online',
             replacement: [
                 {
-                    match: /,"aria-hidden":!0,children:\[.{0,200}— ",\i\]\}\)\]/,
-                    replace: ',"aria-hidden":!0,children:[$self.RoleGroupColor(arguments[0])]'
+                    match: /(?<=\.roleIcon.{0,15}:null,).{0,150}— ",\i\]\}\)\]/,
+                    replace: "$self.RoleGroupColor(arguments[0])]"
                 },
             ],
             predicate: () => settings.store.memberList
@@ -125,21 +124,20 @@ export default definePlugin({
         },
         // Voice Users
         {
-            find: "#{intl::GUEST_NAME_SUFFIX})]",
+            find: ".usernameSpeaking]:",
             replacement: [
                 {
-                    match: /#{intl::GUEST_NAME_SUFFIX}.{0,50}?"".{0,100}\](?=\}\))(?<=guildId:(\i),.+?user:(\i).+?)/,
-                    replace: "$&,style:$self.getColorStyle($2.id,$1),"
+                    match: /\.usernameSpeaking\]:.+?,(?=children)(?<=guildId:(\i),.+?user:(\i).+?)/,
+                    replace: "$&style:$self.getColorStyle($2.id,$1),"
                 }
             ],
             predicate: () => settings.store.voiceUsers
         },
         // Reaction List
         {
-            find: "MessageReactions.render:",
+            find: ".reactionDefault",
             replacement: {
-                // FIXME: (?:medium|normal) is for stable compat
-                match: /tag:"strong",variant:"text-md\/(?:medium|normal)"(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
+                match: /tag:"strong"(?=.{0,50}\i\.name)(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
                 replace: "$&,style:$self.getColorStyle($2?.id,$1?.channel?.id)"
             },
             predicate: () => settings.store.reactorsList,
@@ -148,7 +146,7 @@ export default definePlugin({
         {
             find: ",reactionVoteCounts",
             replacement: {
-                match: /\.SIZE_32.+?variant:"text-md\/normal",className:\i\.\i,(?="aria-label":)/,
+                match: /\.name,(?="aria-label)/,
                 replace: "$&style:$self.getColorStyle(arguments[0]?.user?.id,arguments[0]?.channel?.id),"
             },
             predicate: () => settings.store.pollResults
@@ -157,7 +155,7 @@ export default definePlugin({
         {
             find: ".SEND_FAILED,",
             replacement: {
-                match: /(?<=\]:(\i)\.isUnsupported.{0,50}?,)(?=children:\[)/,
+                match: /(?<=isUnsupported\]:(\i)\.isUnsupported\}\),)(?=children:\[)/,
                 replace: "style:$self.useMessageColorsStyle($1),"
             },
             predicate: () => settings.store.colorChatMessages
@@ -200,8 +198,8 @@ export default definePlugin({
             const { messageSaturation } = settings.use(["messageSaturation"]);
             const author = useMessageAuthor(message);
 
-            // Do not apply role color if the send fails, otherwise it becomes indistinguishable
-            if (message.state === "SEND_FAILED") return;
+            // Do not apply role color if the send fails, otherwise it becomes indistinguishable if the message is sent
+            if (message.state !== "SENT") return;
 
             if (author.colorString != null && messageSaturation !== 0) {
                 const value = `color-mix(in oklab, ${author.colorString} ${messageSaturation}%, var({DEFAULT}))`;

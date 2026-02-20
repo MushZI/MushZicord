@@ -25,13 +25,11 @@ export default definePlugin({
     settings,
     patches: [
         {
-            find: "renderHeaderContent(){",
-            replacement: [
-                {
-                    match: /(?<=state={resultType:)null/,
-                    replace: '"Favorites"'
-                }
-            ]
+            find: '"state",{resultType:',
+            replacement: [{
+                match: /(?<="state",{resultType:)null/,
+                replace: '"Favorites"'
+            }]
         },
         {
             find: "#{intl::NO_GIF_FAVORITES_HOW_TO_FAVORITE}",

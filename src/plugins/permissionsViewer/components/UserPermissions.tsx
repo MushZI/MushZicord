@@ -24,7 +24,7 @@ import { getIntlMessage } from "@utils/discord";
 import { classes } from "@utils/misc";
 import type { Guild, GuildMember, RoleOrUserPermission } from "@vencord/discord-types";
 import { PermissionOverwriteType } from "@vencord/discord-types/enums";
-import { findCssClassesLazy } from "@webpack";
+import { filters, findBulk, proxyLazyWebpack } from "@webpack";
 import { PermissionsBits, Tooltip, useMemo, UserStore } from "@webpack/common";
 
 import { PermissionsSortOrder, settings } from "..";
@@ -39,8 +39,15 @@ interface UserPermission {
 
 type UserPermissions = Array<UserPermission>;
 
-const RoleClasses = findCssClassesLazy("role", "roleName", "roleRemoveButton", "roleNameOverflow", "root");
-const RoleBorderClasses = findCssClassesLazy("roleCircle", "dot", "dotBorderColor");
+const { RoleRootClasses, RoleClasses, RoleBorderClasses } = proxyLazyWebpack(() => {
+    const [RoleRootClasses, RoleClasses, RoleBorderClasses] = findBulk(
+        filters.byProps("root", "expandButton", "collapseButton"),
+        filters.byProps("role", "roleCircle", "roleName"),
+        filters.byProps("roleCircle", "dot", "dotBorderColor")
+    ) as Record<string, string>[];
+
+    return { RoleRootClasses, RoleClasses, RoleBorderClasses };
+});
 
 interface FakeRoleProps extends React.HTMLAttributes<HTMLDivElement> {
     text: string;
@@ -52,7 +59,7 @@ function FakeRole({ text, color, ...props }: FakeRoleProps) {
         <div {...props} className={classes(RoleClasses.role)}>
             <div className={RoleClasses.roleRemoveButton}>
                 <span
-                    className={RoleBorderClasses.roleCircle}
+                    className={classes(RoleBorderClasses.roleCircle, RoleClasses.roleCircle)}
                     style={{ backgroundColor: color }}
                 />
             </div>
@@ -186,7 +193,7 @@ function UserPermissionsComponent({ guild, guildMember, closePopout }: { guild: 
             </div>
         </div>
         {userPermissions.length > 0 && (
-            <div className={classes(RoleClasses.root)}>
+            <div className={classes(RoleRootClasses.root)}>
                 {userPermissions.map(({ permission, roleColor, roleName }) => (
                     <Tooltip
                         key={permission}

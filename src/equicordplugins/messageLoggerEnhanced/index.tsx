@@ -9,7 +9,6 @@ export const Native = getNative();
 import "./styles.css";
 
 import { Devs, EquicordDevs } from "@utils/constants";
-import { classNameFactory } from "@utils/css";
 import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
 import { findByPropsLazy } from "@webpack";
@@ -34,7 +33,6 @@ export { settings };
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
-export const cl = classNameFactory("vc-msg-logger-enhanced-");
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
@@ -42,20 +40,17 @@ let oldGetMessage: typeof MessageStore.getMessage;
 
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
-    if (payload.mlDeleted) {
-        if (settings.store.permanentlyRemoveLogByDefault)
-            await idb.deleteMessageIDB(payload.id);
-
-        return;
-    }
+    if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
+        // Flogger.warn("skipping duplicate message", payload.id);
         return;
     }
 
     try {
         handledMessageIds.add(payload.id);
 
+        // @ts-ignore
         let message: LoggedMessage | LoggedMessageJSON | null =
             oldGetMessage?.(payload.channelId, payload.id);
         if (message == null) {
@@ -80,6 +75,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
                 webhookId: message?.webhookId
             })
         ) {
+            // Flogger.log("IGNORING", message, payload);
             return FluxDispatcher.dispatch({
                 type: "MESSAGE_DELETE",
                 channelId: payload.channelId,
@@ -89,6 +85,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         }
 
         if (message == null || message.channel_id == null || !message.deleted) return;
+        // Flogger.log("ADDING MESSAGE (DELETED)", message);
         if (payload.isBulk)
             return message;
 
@@ -141,7 +138,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             message.editHistory = [];
             cacheThing.commit(cache);
         }
-        return;
+        return;//  Flogger.log("this message has been ignored", payload);
     }
 
     let message = oldGetMessage?.(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
@@ -161,12 +158,14 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
                 ]
             };
 
+            // @ts-ignore
             cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, message);
         }
     }
 
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
+    // Flogger.log("ADDING MESSAGE (EDITED)", message, payload);
     const currentChannelId = SelectedChannelStore.getChannelId();
     await addMessage(message, idb.DBMessageStatus.EDITED, currentChannelId);
 }
@@ -185,6 +184,7 @@ function messageCreateHandler(payload: MessageCreatePayload) {
     }
 
     cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanUpCachedMessage(payload.message));
+    // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
 async function processMessageFetch(response: FetchMessagesResponse) {
@@ -195,14 +195,13 @@ async function processMessageFetch(response: FetchMessagesResponse) {
         }
 
         const firstMessage = response.body[response.body.length - 1];
+        // console.time("fetching messages from idb");
         const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(firstMessage.channel_id, firstMessage.timestamp);
+        // console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;
 
-        const deletedMessages = messages.filter(m =>
-            m.status === idb.DBMessageStatus.DELETED ||
-            m.status === idb.DBMessageStatus.GHOST_PINGED
-        );
+        const deletedMessages = messages.filter(m => m.status === idb.DBMessageStatus.DELETED);
 
         for (const recivedMessage of response.body) {
             const record = messages.find(m => m.message_id === recivedMessage.id);
@@ -224,7 +223,7 @@ async function processMessageFetch(response: FetchMessagesResponse) {
 
             for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
                 const user = message.mentions[j];
-                const cachedUser = fetchUser((user as any).id || user);
+                const cachedUser = fetchUser(user);
                 if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
             }
 
@@ -242,8 +241,8 @@ async function processMessageFetch(response: FetchMessagesResponse) {
 
 export default definePlugin({
     name: "MessageLoggerEnhanced",
-    authors: [Devs.Aria, EquicordDevs.keircn],
-    description: "Improves MessageLogger with edited message history, ghost ping detection and more",
+    authors: [Devs.Aria, EquicordDevs.keyages],
+    description: "G'day",
     dependencies: ["MessageLogger"],
 
     patches: [
@@ -262,20 +261,20 @@ export default definePlugin({
             ]
         },
         {
-            find: ".PREMIUM_REFERRAL&&(",
+            find: "THREAD_STARTER_MESSAGE?null==",
             replacement: {
                 match: /deleted:\i\.deleted, editHistory:\i\.editHistory,/,
                 replace: "deleted:$self.getDeleted(...arguments), editHistory:$self.getEdited(...arguments),"
             }
         },
-        // MessagePreview component in LogsModal
         {
-            find: "=!0,disableInteraction:",
+            find: "childrenMessageContent:null",
             replacement: {
-                match: /childrenHeader:.{0,100}childrenMessageContent/,
-                replace: "childrenAccessories:arguments[0].childrenAccessories || null,$&"
+                match: /(cozyMessage.{1,50},)childrenHeader:/,
+                replace: "$1childrenAccessories:arguments[0].childrenAccessories || null,childrenHeader:"
             }
         },
+        // https://regex101.com/r/S3IVGm/1
         // fix vidoes failing because there are no thumbnails
         {
             find: ".handleImageLoad)",
@@ -371,20 +370,9 @@ export default definePlugin({
         // we have to do this because the original message logger fetches the message from the store now
         MessageStore.getMessage = (channelId: string, messageId: string) => {
             const MLMessage = idb.cachedMessages.get(messageId);
-            if (!MLMessage)
-                return this.oldGetMessage(channelId, messageId);
+            if (MLMessage) return messageJsonToMessageClass({ message: MLMessage });
 
-            if (MLMessage.deleted)
-                return messageJsonToMessageClass({ message: MLMessage });
-
-            // update the edited message with the latest data
-            const latestMessage = this.oldGetMessage(channelId, messageId);
-            return messageJsonToMessageClass({
-                message: {
-                    ...MLMessage,
-                    ...(latestMessage ?? {}),
-                }
-            });
+            return this.oldGetMessage(channelId, messageId);
         };
 
         Native.init();

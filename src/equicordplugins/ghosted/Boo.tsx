@@ -5,20 +5,19 @@
  */
 
 import { Channel, Message } from "@vencord/discord-types";
-import { findCssClassesLazy } from "@webpack";
+import { findByPropsLazy } from "@webpack";
 import { MessageStore, useEffect, UserStore, useState, useStateFromStores } from "@webpack/common";
 
 import { cl, settings } from ".";
 import { IconGhost } from "./IconGhost";
 
-function isChannelExempted(channel: Channel): boolean {
+function isChannelExempted(channelId: string): boolean {
     const exemptList = settings.store.exemptedChannels
         .split(",")
         .map(id => id.trim())
         .filter(id => id.length > 0);
-    const isGroupDmsExempted = settings.store.ignoreGroupDms && channel.isGroupDM();
 
-    return exemptList.includes(channel.id) || isGroupDmsExempted;
+    return exemptList.includes(channelId);
 }
 
 const countedChannels = new Set<string>();
@@ -58,30 +57,28 @@ export function getGhostedChannels(): string[] {
 }
 
 export function clearChannelFromGhost(channelId: string): void {
-    if (!countedChannels.has(channelId)) {
-        return;
-    }
-    countedChannels.delete(channelId);
-    setBooCount(getBooCount() - 1);
+    if (countedChannels.has(channelId)) {
+        countedChannels.delete(channelId);
+        setBooCount(getBooCount() - 1);
 
-    // so we can detect new messages from the other person
-    const lastMessage = MessageStore.getMessages(channelId)?.last();
-    if (lastMessage) {
-        clearedChannels.set(channelId, lastMessage.id);
-    }
+        // so we can detect new messages from the other person
+        const lastMessage = MessageStore.getMessages(channelId)?.last();
+        if (lastMessage) {
+            clearedChannels.set(channelId, lastMessage.id);
+        }
 
-    // notify all listeners that this channel was cleared
-    for (const listener of clearedChannelListeners) {
-        listener(channelId);
+        // notify all listeners that this channel was cleared
+        for (const listener of clearedChannelListeners) {
+            listener(channelId);
+        }
     }
-
 }
 
 export function isChannelCleared(channelId: string): boolean {
     return clearedChannels.has(channelId);
 }
 
-const ChannelWrapperStyles = findCssClassesLazy("muted", "wrapper");
+const ChannelWrapperStyles = findByPropsLazy("muted", "wrapper");
 
 export function Boo({ channel }: { channel: Channel; }) {
     const { id } = channel;
@@ -129,7 +126,7 @@ export function Boo({ channel }: { channel: Channel; }) {
     useEffect(() => {
         if (!state.isDataProcessed) return;
 
-        const isExempted = isChannelExempted(channel);
+        const isExempted = isChannelExempted(id);
         let wasManuallyCleared = clearedChannels.has(id);
 
         // if manually cleared, check if there's a NEW message from the other person
@@ -189,7 +186,7 @@ export function Boo({ channel }: { channel: Channel; }) {
         }
     }, [state.isCurrentUser, state.isDataProcessed, id, lastMessage?.id]);
 
-    if (!state.isDataProcessed || !currentUserId || !lastMessage || state.isCurrentUser || isChannelExempted(channel) || isCleared || (settings.store.ignoreBots && lastMessage.author.bot))
+    if (!state.isDataProcessed || !currentUserId || !lastMessage || state.isCurrentUser || isChannelExempted(id) || isCleared || (settings.store.ignoreBots && lastMessage.author.bot))
         return null;
 
     if (!settings.store.showDmIcons) return null;

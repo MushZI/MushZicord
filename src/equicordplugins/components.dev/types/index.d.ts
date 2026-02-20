@@ -25,6 +25,7 @@ export * from "./menu";
 export * from "./modal";
 export * from "./notice";
 export * from "./paginator";
+export * from "./popout";
 export * from "./progress";
 export * from "./radio";
 export * from "./scroller";

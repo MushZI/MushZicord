@@ -244,7 +244,7 @@ export type Select = ComponentType<PropsWithChildren<{
 export type SearchableSelect = ComponentType<PropsWithChildren<{
     placeholder?: string;
     options: ReadonlyArray<SelectOption>; // TODO
-    value?: any;
+    value?: SelectOption | string[];
 
     /**
      * - 0 ~ Filled

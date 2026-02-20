@@ -29,15 +29,15 @@ export default definePlugin({
         {
             find: '="ABOVE"',
             replacement: {
-                match: /\?\?300/,
-                replace: "??0",
+                match: /:300/,
+                replace: ":0",
             }
         },
         {
             find: "renderLurkerModeUpsellPopout,position:",
             replacement: {
-                match: /200:300/g,
-                replace: "0:0",
+                match: /(\i)=(200|300)/g,
+                replace: "$1=0",
             },
         }
     ]

@@ -4,23 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { BaseText } from "@components/BaseText";
-import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
-import { cl } from "@equicordplugins/holyNotes";
+import { HeadingSecondary } from "@components/Heading";
 import { noteHandler } from "@equicordplugins/holyNotes/NoteHandler";
-import { CloseButton, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize } from "@utils/modal";
-import { React } from "@webpack/common";
+import { ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize } from "@utils/modal";
+import { Button, React } from "@webpack/common";
 
-import EmptyNotebook from "./Error";
+import Error from "./Error";
 import { RenderMessage } from "./RenderMessage";
 
-interface Props extends ModalProps {
-    notebook: string;
-    onChangeTab: React.Dispatch<React.SetStateAction<string>>;
-}
-
-export default function NotebookDeleteModal({ onClose, transitionState, notebook, onChangeTab }: Props) {
+export default ({ onClose, notebook, onChangeTab, ...props }: ModalProps & { onClose: () => void; notebook: string; onChangeTab: React.Dispatch<React.SetStateAction<string>>; }) => {
     const notes = noteHandler.getNotes(notebook);
 
     const handleDelete = () => {
@@ -29,40 +22,38 @@ export default function NotebookDeleteModal({ onClose, transitionState, notebook
         noteHandler.deleteNotebook(notebook);
     };
 
-    const noteList = notes ? Object.values(notes) : [];
-
     return (
-        <ModalRoot transitionState={transitionState} size={ModalSize.LARGE}>
-            <ModalHeader separator={false} className={cl("header")}>
-                <div className={cl("header-content")}>
-                    <BaseText tag="h2" size="lg" weight="semibold" className={cl("title")}>
-                        Delete "{notebook}"?
-                    </BaseText>
-                    <BaseText size="sm" className={cl("description")}>
-                        {noteList.length} {noteList.length === 1 ? "note" : "notes"} will be deleted
-                    </BaseText>
-                </div>
-                <div className={cl("header-trailing")}>
-                    <CloseButton onClick={onClose} />
-                </div>
+        <ModalRoot
+            {...props}
+            className="vc-delete-notebook"
+            size={ModalSize.LARGE}>
+            <ModalHeader>
+                <HeadingSecondary>Confirm Deletion</HeadingSecondary>
+                <ModalCloseButton onClick={onClose} />
             </ModalHeader>
-            <ModalContent className={cl("content")}>
+            <ModalContent>
                 <ErrorBoundary>
-                    {noteList.length ? noteList.map(note => (
-                        <RenderMessage
-                            key={note.id}
-                            note={note}
-                            notebook={notebook}
-                            fromDeleteModal
-                        />
-                    )) : <EmptyNotebook />}
+                    {notes && Object.keys(notes).length > 0 ? (
+                        Object.values(notes).map(note => (
+                            <RenderMessage
+                                key={notebook}
+                                note={note}
+                                notebook={notebook}
+                                fromDeleteModal={true} />
+                        ))
+                    ) : (
+                        <Error />
+                    )}
                 </ErrorBoundary>
             </ModalContent>
             <ModalFooter>
-                <Button variant="dangerPrimary" onClick={handleDelete}>
-                    Delete Notebook
+                <Button
+                    color={Button.Colors.RED}
+                    onClick={handleDelete}
+                >
+                    DELETE
                 </Button>
             </ModalFooter>
         </ModalRoot>
     );
-}
+};

@@ -19,7 +19,7 @@ export async function authorizeUser(triggerModal: boolean = true) {
             {...props}
             scopes={["identify", "connections"]}
             responseType="code"
-            redirectUri="https://themes.equicord.org/api/user/auth"
+            redirectUri="https://discord-themes.com/api/user/auth"
             permissions={0n}
             clientId="1257819493422465235"
             cancelCompletesFlow={false}

@@ -28,9 +28,9 @@ export default definePlugin({
     settings,
     patches: [
         {
-            find: '["VIDEO","CLIP","AUDIO"]',
+            find: ".removeMosaicItemHoverButton),",
             replacement: {
-                match: /(\[\i>0&&\i\.length>0.{0,150}?children:)(\i.slice\(\i\))(?<=showDownload:(\i).+?isVisualMediaType:(\i).+?)/,
+                match: /(\.nonMediaMosaicItem\]:.{0,40}children:)(\i.slice\(\i\))(?<=showDownload:(\i).+?isVisualMediaType:(\i).+?)/,
                 replace: (_, rest, origChildren, showDownload, isVisualMediaType) => `${rest}[${showDownload}&&${isVisualMediaType}&&$self.PictureInPictureButton(),...${origChildren}]`
             }
         }

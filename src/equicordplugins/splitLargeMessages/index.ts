@@ -134,9 +134,9 @@ export default definePlugin({
         },
 
         {
-            find: ".onHideAutocomplete?", // disable file conversion
+            find: '(this,"hideAutocomplete"', // disable file conversion
             replacement: {
-                match: /(?<=getData\(\i\.type\);)if\(\i.length>\i\)/,
+                match: /if\(\i.length>\i\)/,
                 replace: "if(false)",
             },
         }

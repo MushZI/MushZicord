@@ -5,11 +5,10 @@
  */
 
 import { ColorPaletteIcon } from "@components/Icons";
-import SettingsPlugin from "@plugins/_core/settings";
+import SettingsPlugin, { settingsSectionMap } from "@plugins/_core/settings";
 import { EquicordDevs } from "@utils/constants";
-import { removeFromArray } from "@utils/misc";
 import definePlugin from "@utils/types";
-import { SettingsRouter } from "@webpack/common";
+import { openUserSettingsPanel } from "@webpack/common";
 
 import { settings } from "./utils/settings";
 
@@ -20,23 +19,36 @@ export default definePlugin({
     settings,
     toolboxActions: {
         "Open Theme Library": () => {
-            SettingsRouter.openUserSettings("equicord_theme_library_panel");
+            openUserSettingsPanel("theme_library");
         },
     },
 
     start() {
-        SettingsPlugin.customEntries.push({
-            key: "theme_library",
+        const { customEntries, customSections } = SettingsPlugin;
+
+        customEntries.push({
+            key: "equicord_theme_library",
             title: "Theme Library",
             Component: require("./components/ThemeTab").default,
             Icon: ColorPaletteIcon
         });
 
-        SettingsPlugin.settingsSectionMap.push(["EquicordThemeLibrary", "equicord_theme_library"]);
+        customSections.push(() => ({
+            section: "EquicordThemeLibrary",
+            label: "Theme Library",
+            searchableTitles: ["Theme Library"],
+            element: require("./components/ThemeTab").default,
+            id: "ThemeLibrary",
+        }));
+
+        settingsSectionMap.push(["EquicordThemeLibrary", "equicord_theme_library"]);
     },
 
     stop() {
-        removeFromArray(SettingsPlugin.customEntries, e => e.key === "equicord_theme_library");
-        removeFromArray(SettingsPlugin.settingsSectionMap, entry => entry[1] === "equicord_theme_library");
+        const { customEntries, customSections } = SettingsPlugin;
+        const entry = customEntries.findIndex(entry => entry.key === "equicord_theme_library");
+        const section = customSections.findIndex(section => section({} as any).id === "ThemeLibrary");
+        if (entry !== -1) customEntries.splice(entry, 1);
+        if (section !== -1) customSections.splice(section, 1);
     },
 });

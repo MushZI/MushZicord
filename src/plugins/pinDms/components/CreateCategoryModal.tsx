@@ -26,7 +26,7 @@ interface ColorPickerWithSwatchesProps {
 
 const ColorPickerWithSwatches = findComponentByCodeLazy<ColorPickerWithSwatchesProps>('id:"color-picker"');
 
-export const requireSettingsModal = extractAndLoadChunksLazy(['type:"USER_SETTINGS_MODAL_OPEN"']);
+export const requireSettingsMenu = extractAndLoadChunksLazy(['name:"UserSettings"'], /createPromise:.{0,20}(\i\.\i\("?.+?"?\).*?).then\(\i\.bind\(\i,"?(.+?)"?\)\).{0,50}"UserSettings"/);
 
 const cl = classNameFactory("vc-pindms-modal-");
 
@@ -121,6 +121,6 @@ export function NewCategoryModal({ categoryId, modalProps, initialChannelId }: P
 
 export const openCategoryModal = (categoryId: string | null, channelId: string | null) =>
     openModalLazy(async () => {
-        await requireSettingsModal();
+        await requireSettingsMenu();
         return modalProps => <NewCategoryModal categoryId={categoryId} modalProps={modalProps} initialChannelId={channelId} />;
     });

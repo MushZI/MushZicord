@@ -6,19 +6,18 @@
 
 import "./styles.css";
 
-import { findGroupChildrenByChildId } from "@api/ContextMenu";
 import { addServerListElement, removeServerListElement, ServerListRenderPosition } from "@api/ServerList";
-import { definePluginSettings } from "@api/Settings";
+import { definePluginSettings, migratePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs, EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import { closeModal, openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
 import { Channel } from "@vencord/discord-types";
-import { Menu, Tooltip, useEffect, useState } from "@webpack/common";
+import { ChannelStore, MessageStore, Tooltip, useEffect, UserStore, useState } from "@webpack/common";
 
 import { Boo, clearChannelFromGhost, getBooCount, getGhostedChannels, onBooCountChange } from "./Boo";
-import { getChannelDisplayName, GhostedUsersModal } from "./GhostedUsersModal";
+import { GhostedUsersModal } from "./GhostedUsersModal";
 import { IconGhost } from "./IconGhost";
 
 export const cl = classNameFactory("vc-boo-");
@@ -36,11 +35,6 @@ export const settings = definePluginSettings({
         default: true,
         restartNeeded: false
     },
-    ignoreGroupDms: {
-        type: OptionType.BOOLEAN,
-        description: "Exclude all group dms from ghosting",
-        default: false
-    },
     exemptedChannels: {
         type: OptionType.STRING,
         description: "Comma-separated list of channel IDs to exempt from ghosting (right-click a DM channel to copy its ID)",
@@ -54,6 +48,26 @@ export const settings = definePluginSettings({
         restartNeeded: false
     }
 });
+
+function getChannelDisplayName(channelId: string): string {
+    const channel = ChannelStore.getChannel(channelId);
+    if (!channel) return "Unknown";
+
+    // get last message to determine sender for group DMs
+    const lastMessage = MessageStore.getMessages(channelId)?.last();
+
+    // check if it's a group DM
+    if (channel.recipients?.length > 1 && lastMessage) {
+        // show last message sender for group DMs
+        const lastSender = UserStore.getUser(lastMessage.author.id);
+        return lastSender?.username || "Unknown User";
+    }
+
+    // 1-on-1 DM
+    const recipientId = channel.recipients?.[0];
+    const user = UserStore.getUser(recipientId);
+    return user?.username || "Unknown User";
+}
 
 function BooIndicator() {
     const [count, setCount] = useState(getBooCount());
@@ -100,7 +114,7 @@ function BooIndicator() {
 
     return (
         <>
-            {settings.store.showIndicator && getGhostedChannels().length > 0 && (
+            {settings.store.showIndicator && (
                 <div id={cl("container")}>
                     <Tooltip text={getTooltipText()} position="right">
                         {({ onMouseEnter, onMouseLeave }) => (
@@ -121,39 +135,19 @@ function BooIndicator() {
     );
 }
 
-function makeContextItem(props) {
-    return <Menu.MenuItem
-        id="ec-ghosted-clear"
-        key="ec-ghosted-clear"
-        label="unghost"
-        action={() => {
-            clearChannelFromGhost(props.channel.id);
-        }}
-    />;
-}
-
+migratePluginSettings("Ghosted", "Boo");
 export default definePlugin({
     name: "Ghosted",
     description: "A cute ghost will appear if you don't answer their DMs",
-    authors: [EquicordDevs.vei, Devs.sadan, EquicordDevs.justjxke, EquicordDevs.iamme],
+    authors: [EquicordDevs.vei, Devs.sadan, EquicordDevs.justjxke],
     settings,
-    dependencies: ["AudioPlayerAPI", "ServerListAPI"],
-    contextMenus: {
-        "gdm-context": (menuItems, props) => {
-            const group = findGroupChildrenByChildId("leave", menuItems, true);
-            group?.unshift(makeContextItem(props));
-        },
-        "user-context": (menuItems, props) => {
-            const group = findGroupChildrenByChildId("close-dm", menuItems);
-            group?.push(makeContextItem(props));
-        }
-    },
+    dependencies: ["AudioPlayerAPI"],
 
     patches: [
         {
-            find: "PrivateChannel.renderAvatar",
+            find: "interactiveSelected]",
             replacement: {
-                match: /\]:\i\|\|\i.{0,50}children:\[/,
+                match: /interactiveSelected.{0,50}children:\[/,
                 replace: "$&$self.renderBoo(arguments[0]),"
             }
         },

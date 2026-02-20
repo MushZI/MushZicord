@@ -9,83 +9,98 @@ import { DataStore } from "@api/index";
 import { Toasts } from "@webpack/common";
 
 import { noteHandler, noteHandlerCache } from "./NoteHandler";
-import { Notebook } from "./types";
+import { HolyNotes } from "./types";
 
 export const HolyNoteStore = createStore("HolyNoteData", "HolyNoteStore");
 
-export function saveCacheToDataStore(key: string, value: Notebook) {
-    DataStore.set(key, value, HolyNoteStore);
+export async function saveCacheToDataStore(key: string, value?: HolyNotes.Note[]) {
+    await DataStore.set(key, value, HolyNoteStore);
 }
 
-export function deleteCacheFromDataStore(key: string) {
-    DataStore.del(key, HolyNoteStore);
+export async function deleteCacheFromDataStore(key: string) {
+    await DataStore.del(key, HolyNoteStore);
+}
+
+export async function getFormatedEntries() {
+    const data = await DataStore.entries(HolyNoteStore);
+    const notebooks: Record<string, HolyNotes.Note> = {};
+
+    data.forEach(function (note) {
+        notebooks[note[0].toString()] = note[1];
+    });
+
+    return notebooks;
 }
 
 export async function DataStoreToCache() {
-    const entries = await DataStore.entries(HolyNoteStore);
-    for (const [key, value] of entries) {
-        noteHandlerCache.set(String(key), value as Notebook);
-    }
+    const data = await DataStore.entries(HolyNoteStore);
+
+    data.forEach(function (note) {
+        noteHandlerCache.set(note[0].toString(), note[1]);
+    });
 }
 
 export async function DeleteEntireStore() {
     await DataStore.clear(HolyNoteStore);
-    noteHandler.newNoteBook("Main", true);
+    return noteHandler.newNoteBook("Main", true);
 }
 
 export async function downloadNotes() {
     const filename = "notes.json";
-    const data = JSON.stringify(noteHandler.exportNotes(), null, 2);
+    const exportData = await noteHandler.exportNotes();
+    const data = JSON.stringify(exportData, null, 2);
 
-    if (IS_VESKTOP || IS_EQUIBOP || IS_WEB) {
+    if (IS_VESKTOP || IS_WEB) {
         const file = new File([data], filename, { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(file);
         a.download = filename;
+
         document.body.appendChild(a);
         a.click();
-        setTimeout(() => {
+        setImmediate(() => {
             URL.revokeObjectURL(a.href);
             document.body.removeChild(a);
-        }, 0);
+        });
     } else {
         DiscordNative.fileManager.saveWithDialog(data, filename);
     }
 }
 
 export async function uploadNotes() {
-    if (IS_VESKTOP || IS_EQUIBOP || IS_WEB) {
+    if (IS_VESKTOP || IS_WEB) {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = "application/json";
         input.style.display = "none";
-        input.onchange = () => {
+        input.accept = "application/json";
+        input.onchange = async () => {
             const file = input.files?.[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
                 try {
-                    noteHandler.importNotes(reader.result as string);
-                } catch {
+                    await noteHandler.importNotes(reader.result as unknown as HolyNotes.Note[]);
+                } catch (err) {
+                    console.error(err);
                     Toasts.show({
                         id: Toasts.genId(),
-                        message: "Failed to import notes",
+                        message: "Invalid JSON.",
                         type: Toasts.Type.FAILURE,
                     });
                 }
             };
             reader.readAsText(file);
         };
+
         document.body.appendChild(input);
         input.click();
-        setTimeout(() => document.body.removeChild(input), 0);
+        setImmediate(() => document.body.removeChild(input));
     } else {
-        const [file] = await DiscordNative.fileManager.openFiles({
-            filters: [{ name: "notes", extensions: ["json"] }]
-        });
+        const [file] = await DiscordNative.fileManager.openFiles({ filters: [{ name: "notes", extensions: ["json"] }] });
+
         if (file) {
-            noteHandler.importNotes(new TextDecoder().decode(file.data));
+            await noteHandler.importNotes(new TextDecoder().decode(file.data) as unknown as HolyNotes.Note[]);
         }
     }
 }

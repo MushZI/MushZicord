@@ -174,8 +174,9 @@ export default definePlugin({
             find: '["strong","em","u","text","inlineCode","s","spoiler"]',
             replacement: [
                 {
-                    match: /(?=return\{hasSpoilerEmbeds:\i,.{0,15}content:(\i))/,
-                    replace: "$1=$self.patchToneIndicators($1);",
+                    match: /(?=return\{hasSpoilerEmbeds:\i,content:(\i))/,
+                    replace: (_: any, content: string) =>
+                        `${content}=$self.patchToneIndicators(${content});`,
                 },
             ],
         },

@@ -25,9 +25,12 @@ import { classNameFactory } from "@utils/css";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import type { Channel, Role } from "@vencord/discord-types";
+import { findByPropsLazy } from "@webpack";
 import { ChannelStore, PermissionsBits, PermissionStore, Tooltip } from "@webpack/common";
 
 import HiddenChannelLockScreen from "./components/HiddenChannelLockScreen";
+
+const ChannelListClasses = findByPropsLazy("modeMuted", "modeSelected", "unread", "icon");
 
 export const cl = classNameFactory("vc-shc-");
 
@@ -118,7 +121,7 @@ export default definePlugin({
             replacement: [
                 {
                     // Do not show confirmation to join a voice channel when already connected to another if clicking on a hidden voice channel
-                    match: /(?<=getIgnoredUsersForVoiceChannel\((\i)\.id\)[^;]+?;return\()/,
+                    match: /(?<=getIgnoredUsersForVoiceChannel\((\i)\.id\);return\()/,
                     replace: (_, channel) => `!$self.isHiddenChannel(${channel})&&`
                 },
                 {
@@ -159,7 +162,7 @@ export default definePlugin({
             all: true,
             // Render null instead of the buttons if the channel is hidden
             replacement: {
-                match: /(?<=renderOpenChatButton(?:",|=)\(\)=>{)/,
+                match: /(?<="renderOpenChatButton",\(\)=>{)/,
                 replace: "if($self.isHiddenChannel(this.props.channel))return null;"
             }
         },
@@ -196,12 +199,12 @@ export default definePlugin({
             replacement: [
                 // Make the channel appear as muted if it's hidden
                 {
-                    match: /Children\.count.+?;(?=return\(0,\i\.jsxs?\)\(\i\.\i,{focusTarget:)(?<={channel:(\i),name:\i,muted:(\i).+?;)/,
+                    match: /\.subtitle,.+?;(?=return\(0,\i\.jsxs?\))(?<={channel:(\i),name:\i,muted:(\i).+?;)/,
                     replace: (m, channel, muted) => `${m}${muted}=$self.isHiddenChannel(${channel})?true:${muted};`
                 },
                 // Make voice channels also appear as muted if they are muted
                 {
-                    match: /(?<=\?\i\.\i:\i\.\i,)(.{0,150}?)if\((\i)(?:\)return |\?)(\i\.MUTED)/,
+                    match: /(?<=\.wrapper:\i\.notInteractive,)(.+?)if\((\i)(?:\)return |\?)(\i\.MUTED)/,
                     replace: (_, otherClasses, isMuted, mutedClassExpression) => `${isMuted}?${mutedClassExpression}:"",${otherClasses}if(${isMuted})return ""`
                 }
             ]
@@ -216,14 +219,14 @@ export default definePlugin({
                 },
                 {
                     // Hide unreads
-                    match: /Children\.count.+?;(?=return\(0,\i\.jsxs?\)\(\i\.\i,{focusTarget:)(?<={channel:(\i),name:\i,.+?unread:(\i).+?)/,
+                    match: /\.subtitle,.+?;(?=return\(0,\i\.jsxs?\))(?<={channel:(\i),name:\i,.+?unread:(\i).+?)/,
                     replace: (m, channel, unread) => `${m}${unread}=$self.isHiddenChannel(${channel})?false:${unread};`
                 }
             ]
         },
         {
             // Hide the new version of unreads box for hidden channels
-            find: '"ChannelListUnreadsStore"',
+            find: '"ChannelListUnreadsStore",',
             replacement: {
                 match: /(?<=\.id\)\))(?=&&\(0,\i\.\i\)\((\i)\))/,
                 replace: (_, channel) => `&&!$self.isHiddenChannel(${channel})`
@@ -250,19 +253,19 @@ export default definePlugin({
             find: "Missing channel in Channel.renderHeaderToolbar",
             replacement: [
                 {
-                    match: /renderHeaderToolbar(?:",|=)\(\)=>{.+?case \i\.\i\.GUILD_TEXT:(?=.+?(\i\.push.{0,50}channel:(\i)},"notifications"\)\)))(?<=isLurking:(\i).+?)/,
+                    match: /"renderHeaderToolbar",\(\)=>{.+?case \i\.\i\.GUILD_TEXT:(?=.+?(\i\.push.{0,50}channel:(\i)},"notifications"\)\)))(?<=isLurking:(\i).+?)/,
                     replace: (m, pushNotificationButtonExpression, channel, isLurking) => `${m}if(!${isLurking}&&$self.isHiddenChannel(${channel})){${pushNotificationButtonExpression};break;}`
                 },
                 {
-                    match: /renderHeaderToolbar(?:",|=)\(\)=>{.+?case \i\.\i\.GUILD_MEDIA:(?=.+?(\i\.push.{0,40}channel:(\i)},"notifications"\)\)))(?<=isLurking:(\i).+?)/,
+                    match: /"renderHeaderToolbar",\(\)=>{.+?case \i\.\i\.GUILD_MEDIA:(?=.+?(\i\.push.{0,40}channel:(\i)},"notifications"\)\)))(?<=isLurking:(\i).+?)/,
                     replace: (m, pushNotificationButtonExpression, channel, isLurking) => `${m}if(!${isLurking}&&$self.isHiddenChannel(${channel})){${pushNotificationButtonExpression};break;}`
                 },
                 {
-                    match: /renderMobileToolbar(?:",|=)\(\)=>{.+?case \i\.\i\.GUILD_DIRECTORY:(?<=let{channel:(\i).+?)/,
+                    match: /"renderMobileToolbar",\(\)=>{.+?case \i\.\i\.GUILD_DIRECTORY:(?<=let{channel:(\i).+?)/,
                     replace: (m, channel) => `${m}if($self.isHiddenChannel(${channel}))break;`
                 },
                 {
-                    match: /(?<=renderHeaderBar(?:",|=)\(\)=>{.+?hideSearch:(\i)\.isDirectory\(\))/,
+                    match: /(?<="renderHeaderBar",\(\)=>{.+?hideSearch:(\i)\.isDirectory\(\))/,
                     replace: (_, channel) => `||$self.isHiddenChannel(${channel})`
                 },
                 {
@@ -324,7 +327,7 @@ export default definePlugin({
                 },
                 {
                     // Patch the header to only return allowed users and roles if it's a hidden channel or locked channel (Like when it's used on the HiddenChannelLockScreen)
-                    match: /return\(0,\i\.jsxs?\)\(\i\.\i,{channelId:(\i)\.id(?=.+?(\(0,\i\.jsxs?\)\("div",{className:\i\.\i,children:\[.{0,100}\i\.length>0.+?\]}\)),)/,
+                    match: /return\(0,\i\.jsxs?\)\(\i\.\i,{channelId:(\i)\.id(?=.+?(\(0,\i\.jsxs?\)\("div",{className:\i\.members.+?\]}\)),)/,
                     replace: (m, channel, allowedUsersAndRolesComponent) => `if($self.isHiddenChannel(${channel},true)){return${allowedUsersAndRolesComponent};}${m}`
                 },
                 {
@@ -355,7 +358,7 @@ export default definePlugin({
                 {
                     // Show only the plus text without overflowed children amount
                     // if the overflow amount is <= 0 and the component is used inside the HiddenChannelLockScreen
-                    match: /(?<=`\+\$\{)\i(?=\})/,
+                    match: /(?<="\+"\.concat\()\i/,
                     replace: overflowTextAmount => "" +
                         `$self.isHiddenChannel(typeof shcChannel!=="undefined"?shcChannel:void 0,true)&&(${overflowTextAmount}-1)<=0?"":${overflowTextAmount}`
                 }
@@ -391,7 +394,7 @@ export default definePlugin({
                 },
                 {
                     // Disable bad CSS class which mess up hidden voice channels styling
-                    match: /(?=\i\|\|\i!==\i\.\i\.FULL_SCREEN.{0,100}?this\._callContainerRef)/,
+                    match: /callContainer,(?<=\i\.callContainer,)/,
                     replace: '$&!this.props.inCall&&$self.isHiddenChannel(this.props.channel,true)?"":'
                 }
             ]
@@ -431,7 +434,7 @@ export default definePlugin({
                 },
                 {
                     // Remove the open chat button for the HiddenChannelLockScreen
-                    match: /(?<=numRequestToSpeak:\i\}\)\}\):null,!\i&&)\(0,\i\.jsxs?\).{0,280}?iconClassName:/,
+                    match: /(?<=&&)\(0,\i\.jsxs?\).{0,180}\.buttonIcon/,
                     replace: "!$self.isHiddenChannel(arguments[0]?.channel,true)&&$&"
                 }
             ]
@@ -461,10 +464,10 @@ export default definePlugin({
             },
         },
         {
-            find: '"channel_mention"});',
+            find: 'className:"channelMention",children',
             replacement: {
                 // Show inside voice channel instead of trying to join them when clicking on a channel mention
-                match: /(?<=getChannel\(\i\);if\(null!=(\i))(?=.{0,150}?selectVoiceChannel)/,
+                match: /(?<=getChannel\(\i\);if\(null!=(\i))(?=.{0,100}?selectVoiceChannel)/,
                 replace: (_, channel) => `&&!$self.isHiddenChannel(${channel})`
             }
         },
@@ -484,7 +487,7 @@ export default definePlugin({
             ]
         },
         {
-            find: "GuildTooltip - ",
+            find: ".invitesDisabledTooltip",
             replacement: {
                 // Make GuildChannelStore.getChannels return hidden channels
                 match: /(?<=getChannels\(\i)(?=\))/,
@@ -563,7 +566,7 @@ export default definePlugin({
 
     LockIcon: ErrorBoundary.wrap(() => (
         <svg
-            className={cl("channel-list-icon")}
+            className={ChannelListClasses.icon}
             height="18"
             width="20"
             viewBox="0 0 24 24"
@@ -580,7 +583,7 @@ export default definePlugin({
                 <svg
                     onMouseLeave={onMouseLeave}
                     onMouseEnter={onMouseEnter}
-                    className={classes(cl("channel-list-icon"), cl("hidden-channel-icon"))}
+                    className={classes(ChannelListClasses.icon, cl("hidden-channel-icon"))}
                     width="24"
                     height="24"
                     viewBox="0 0 24 24"
@@ -599,7 +602,7 @@ export default definePlugin({
                 <svg
                     onMouseLeave={onMouseLeave}
                     onMouseEnter={onMouseEnter}
-                    className={cl("channel-list-icon") + " " + "shc-hidden-channel-icon"}
+                    className={ChannelListClasses.icon + " " + "shc-hidden-channel-icon"}
                     width="24"
                     height="24"
                     viewBox="0 0 24 24"

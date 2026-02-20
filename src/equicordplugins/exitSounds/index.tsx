@@ -10,7 +10,7 @@ import { playAudio } from "@api/AudioPlayer";
 import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
-import { Devs } from "@utils/constants";
+import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import definePlugin, { OptionType } from "@utils/types";
 import { findComponentByCodeLazy } from "@webpack";
@@ -104,7 +104,7 @@ let original: typeof ChannelActions.selectVoiceChannel;
 export default definePlugin({
     name: "ExitSounds",
     description: "Play soundboard sounds when you disconnect from voice.",
-    authors: [Devs.prism],
+    authors: [EquicordDevs.Prism],
     dependencies: ["AudioPlayerAPI"],
     settings,
 

@@ -47,14 +47,14 @@ export default definePlugin({
         },
         // Decoration modal module
         {
-            find: "80,onlyAnimateOnHoverOrFocus:!",
+            find: ".decorationGridItem,",
             replacement: [
                 {
-                    match: /(?<==)\i=>{let{children.{20,200}isSelected:\i=!1.{0,5}\}=\i/,
+                    match: /(?<==)\i=>{var{children.{20,200}decorationGridItem/,
                     replace: "$self.DecorationGridItem=$&",
                 },
                 {
-                    match: /(?<==)\i=>{let{user:\i,avatarDecoration/,
+                    match: /(?<==)\i=>{var{user:\i,avatarDecoration/,
                     replace: "$self.DecorationGridDecoration=$&",
                 },
                 // Remove NEW label from decor avatar decorations
@@ -87,7 +87,7 @@ export default definePlugin({
         },
         // Current user area, at bottom of channels/dm list
         {
-            find: ".NITRO_PRIVACY_PERK_BETA_COACHMARK));",
+            find: "#{intl::ACCOUNT_SPEAKING_WHILE_MUTED}",
             replacement: [
                 // Use Decor avatar decoration hook
                 {
@@ -98,23 +98,17 @@ export default definePlugin({
         },
         ...[
             '"Message Username"', // Messages
-            "#{intl::COLLECTIBLES_NAMEPLATE_PREVIEW_A11Y}", // Nameplate preview
+            ".nameplatePreview,{", // Nameplate preview
             "#{intl::ayozFl::raw}", // Avatar preview
         ].map(find => ({
             find,
-            replacement: {
-                match: /(?<=userValue:)((\i(?:\.author)?)\?\.avatarDecoration)/,
-                replace: "$self.useUserDecorAvatarDecoration($2)??$1"
-            }
+            replacement: [
+                {
+                    match: /(?<=userValue.{0,25}void 0:)((\i)\.avatarDecoration)/,
+                    replace: "$self.useUserDecorAvatarDecoration($2)??$1"
+                }
+            ]
         })),
-        // Patch avatar decoration preview to display Decor avatar decorations as if they are purchased
-        {
-            find: "#{intl::PREMIUM_UPSELL_PROFILE_AVATAR_DECO_INLINE_UPSELL_DESCRIPTION}",
-            replacement: {
-                match: /(#{intl::PREMIUM_UPSELL_PROFILE_AVATAR_DECO_INLINE_UPSELL_DESCRIPTION}.+?return null!=(\i)&&\()(null==\i)/,
-                replace: (_, rest, avatarDecoration, hasPurchase) => `${rest}(${avatarDecoration}.skuId!==$self.SKU_ID&&${avatarDecoration}.skuId!==$self.RAW_SKU_ID&&${hasPurchase})`
-            }
-        }
     ],
     settings,
 
@@ -138,7 +132,6 @@ export default definePlugin({
     },
 
     SKU_ID,
-    RAW_SKU_ID,
 
     useUserDecorAvatarDecoration,
 

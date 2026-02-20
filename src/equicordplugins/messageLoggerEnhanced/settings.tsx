@@ -5,10 +5,9 @@
  */
 
 import { definePluginSettings } from "@api/Settings";
-import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { OptionType } from "@utils/types";
-import { Alerts, useState } from "@webpack/common";
+import { Alerts, Button } from "@webpack/common";
 import { Settings } from "Vencord";
 
 import { Native } from ".";
@@ -18,46 +17,6 @@ import { clearMessagesIDB } from "./db";
 import { blockedExts } from "./list";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { exportLogs, importLogs } from "./utils/settingsUtils";
-
-function ImportLogsButton() {
-    const [loading, setLoading] = useState(false);
-
-    return (
-        <Button
-            disabled={loading}
-            onClick={async () => {
-                setLoading(true);
-                try {
-                    await importLogs();
-                } finally {
-                    setLoading(false);
-                }
-            }}
-        >
-            {loading ? "Importing..." : "Import Logs"}
-        </Button>
-    );
-}
-
-function ExportLogsButton() {
-    const [loading, setLoading] = useState(false);
-
-    return (
-        <Button
-            disabled={loading}
-            onClick={async () => {
-                setLoading(true);
-                try {
-                    await exportLogs();
-                } finally {
-                    setLoading(false);
-                }
-            }}
-        >
-            {loading ? "Exporting..." : "Export Logs"}
-        </Button>
-    );
-}
 
 export const settings = definePluginSettings({
     saveMessages: {
@@ -137,12 +96,6 @@ export const settings = definePluginSettings({
         default: true,
         type: OptionType.BOOLEAN,
         description: "Always log current selected channel. Blacklisted channels/users will still be ignored.",
-    },
-
-    permanentlyRemoveLogByDefault: {
-        default: false,
-        type: OptionType.BOOLEAN,
-        description: "Vencord's base MessageLogger remove log button wiil delete logs permanently",
     },
 
     hideMessageFromMessageLoggers: {
@@ -251,13 +204,19 @@ export const settings = definePluginSettings({
     importLogs: {
         type: OptionType.COMPONENT,
         description: "Import Logs From File",
-        component: ImportLogsButton
+        component: () =>
+            <Button onClick={importLogs}>
+                Import Logs
+            </Button>
     },
 
     exportLogs: {
         type: OptionType.COMPONENT,
         description: "Export Logs From IndexedDB",
-        component: ExportLogsButton
+        component: () =>
+            <Button onClick={exportLogs}>
+                Export Logs
+            </Button>
     },
 
     openLogs: {
@@ -289,16 +248,15 @@ export const settings = definePluginSettings({
         description: "Clear Logs",
         component: () =>
             <Button
-                variant="dangerPrimary"
+                color={Button.Colors.RED}
                 onClick={() => Alerts.show({
                     title: "Clear Logs",
                     body: "Are you sure you want to clear all logs?",
-                    // @ts-expect-error not typed
-                    confirmVariant: "critical-primary",
+                    confirmColor: Button.Colors.RED,
                     confirmText: "Clear",
                     cancelText: "Cancel",
-                    onConfirm: async () => {
-                        await clearMessagesIDB();
+                    onConfirm: () => {
+                        clearMessagesIDB();
                     },
                 })}
             >
