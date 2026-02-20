@@ -52,10 +52,10 @@ export default definePlugin({
 
     patches: [
         {
-            find: "this.isCopiedStreakGodlike",
+            find: ".NITRO_PRIVACY_PERK_BETA_COACHMARK));",
             replacement: {
                 // react.jsx)(AccountPanel, { ..., showTaglessAccountPanel: blah })
-                match: /(?<=\i\.jsxs?\)\()(\i),{(?=[^}]*?userTag:\i,hidePrivateData:)/,
+                match: /(?<=\i\.jsxs?\)\()(\i),{(?=[^}]*?userTag:\i,(occluded|hidePrivateData):)/,
                 // react.jsx(WrapperComponent, { VencordOriginal: AccountPanel, ...
                 replace: "$self.PanelWrapper,{VencordOriginal:$1,"
             },
