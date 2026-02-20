@@ -213,15 +213,15 @@ export default definePlugin({
 
         const equicordEntries: SettingsLayoutNode[] = [
             buildEntry({
-                key: "Mushcord_main",
-                title: "Mushcord",
-                panelTitle: "Mushcord Settings",
+                key: "equicord_main",
+                title: "Equicord",
+                panelTitle: "Equicord Settings",
                 Component: VencordTab,
                 Icon: MainSettingsIcon
             }),
             buildEntry({
-                key: "Mushcord_plugins",
-                title: "MushPlugins",
+                key: "equicord_plugins",
+                title: "Plugins",
                 Component: PluginsTab,
                 Icon: PluginsIcon
             }),
@@ -247,7 +247,7 @@ export default definePlugin({
             buildEntry({
                 key: "equicord_cloud",
                 title: "Cloud",
-                panelTitle: "Mushcord Cloud",
+                panelTitle: "Equicord Cloud",
                 Component: CloudTab,
                 Icon: CloudIcon
             }),
@@ -269,7 +269,7 @@ export default definePlugin({
         const equicordSection: SettingsLayoutNode = {
             key: "equicord_section",
             type: LayoutTypes.SECTION,
-            useTitle: () => "Mushcord Settings",
+            useTitle: () => "Equicord Settings",
             buildLayout: () => equicordEntries
         };
 
