@@ -213,14 +213,14 @@ export default definePlugin({
 
         const equicordEntries: SettingsLayoutNode[] = [
             buildEntry({
-                key: "equicord_main",
+                key: "Mushcord_main",
                 title: "Mushcord",
                 panelTitle: "Mushcord Settings",
                 Component: VencordTab,
                 Icon: MainSettingsIcon
             }),
             buildEntry({
-                key: "equicord_plugins",
+                key: "Mushcord_plugins",
                 title: "MushPlugins",
                 Component: PluginsTab,
                 Icon: PluginsIcon
@@ -234,7 +234,7 @@ export default definePlugin({
             !IS_UPDATER_DISABLED && UpdaterTab && buildEntry({
                 key: "equicord_updater",
                 title: "Updater",
-                panelTitle: "Mushcord Updater",
+                panelTitle: "Equicord Updater",
                 Component: UpdaterTab,
                 Icon: UpdaterIcon
             }),
