@@ -20,11 +20,13 @@ import {
     React,
     SelectedChannelStore,
     Toasts,
-    UserStore
+    useEffect,
+    UserStore,
+    useState
 } from "@webpack/common";
-import type { PropsWithChildren, SVGProps } from "react";
+import { type PropsWithChildren, type SVGProps } from "react";
 
-const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '.iconBadge,"top"');
+const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '"aria-haspopup":');
 
 interface BaseIconProps extends IconProps {
     viewBox: string;
@@ -287,7 +289,7 @@ export default definePlugin({
 
     patches: [
         {
-            find: ".controlButtonWrapper,",
+            find: /toolbar:\i,mobileToolbar:\i/,
             replacement: {
                 match: /(function \i\(\i\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
                 replace: "$1$self.addIconToToolBar(arguments[0]);$2"
@@ -346,22 +348,32 @@ export default definePlugin({
 
     FollowIndicator() {
         const { plugins: { FollowUser: { followUserId } } } = useSettings(["plugins.FollowUser.followUserId"]);
-        if (followUserId) {
-            return (
-                <HeaderBarIcon
-                    tooltip={`Following ${UserStore.getUser(followUserId).username} (click to trigger manually, right-click to unfollow)`}
-                    icon={UnfollowIcon}
-                    onClick={() => {
-                        triggerFollow();
-                    }}
-                    onContextMenu={() => {
-                        settings.store.followUserId = "";
-                    }}
-                />
-            );
-        }
+        const [followUsername, setFollowUsername] = useState<string | undefined>(undefined);
 
-        return null;
+        const updateUserName = () => {
+            if (!followUserId) return;
+
+            const user = UserStore.getUser(followUserId);
+            if (!user) {
+                setTimeout(() => updateUserName(), 1);
+                return;
+            }
+
+            setFollowUsername(user.username);
+        };
+
+        useEffect(() => updateUserName(), [followUserId]);
+
+        return <>
+            {followUserId && <HeaderBarIcon
+                tooltip={`Following ${followUsername} (click to trigger manually, right-click to unfollow)`}
+                icon={UnfollowIcon}
+                onClick={() => triggerFollow()}
+                onContextMenu={() => {
+                    settings.store.followUserId = "";
+                }}
+            />}
+        </>;
     },
 
     addIconToToolBar(e: { toolbar: React.ReactNode[] | React.ReactNode; }) {
