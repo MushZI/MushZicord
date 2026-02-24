@@ -1,61 +1,78 @@
-name: Build and Release
-
+name: Release
 on:
-  push:
-    branches:
-      - main # Change par 'master' si ta branche principale s'appelle master
-  workflow_dispatch: # Permet de lancer le build manuellement
+    push:
+        branches:
+            - main
+
+env:
+    FORCE_COLOR: true
+    GITHUB_TOKEN: ${{ github.token }}
+    REPO: MushZI/MushZicord 
+    USERNAME: GitHub-Actions
+
+permissions:
+    contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # Autorise GitHub à créer la release
+    Build:
+        name: Build Equicord
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+            - uses: pnpm/action-setup@v3
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          run_install: false
+            - name: Use Node.js 20
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: "pnpm"
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
 
-      - name: Setup pnpm cache
-        uses: actions/setup-cache@v3
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            - name: Build web
+              run: pnpm buildWebStandalone
 
-      - name: Install dependencies
-        run: pnpm install
+            - name: Build
+              run: pnpm buildStandalone
 
-      - name: Build Equicord
-        run: pnpm build
+            - name: Generate plugin lists
+              run: |
+                  pnpm generatePluginJson dist/plugins.json
+                  pnpm generateEquicordPluginJson dist/equicordplugins.json
+                  pnpm generateVencordPluginJson dist/vencordplugins.json
+                  pnpm generateDevsList dist/devs.json
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest
-          name: Latest Build
-          draft: false
-          prerelease: false
-          files: |
-            dist/browser.js
-            dist/browser.js.map
-            dist/Vencord.css
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Collect files to be released
+              run: |
+                  cd dist
+                  mkdir release
+                  cp browser/browser.* release
+                  cp Equicord.user.{js,js.LEGAL.txt} release
+                  cp *.{json,zip,asar} release
+                  find release -size 0 -delete
+                  rm -f release/package.json
+                  rm -f release/*.map
+
+            - name: Upload Equicord Stable
+              run: |
+                  # Crée la release "latest" si elle n'existe pas, sinon continue
+                  gh release create latest --title "Latest Build" --notes "Build automatique de MushZicord" || echo "Release déjà existante"
+                  # Envoie les fichiers dans la release
+                  gh release upload latest --clobber dist/release/*
+              env:
+                  GH_TOKEN: ${{ github.token }}
+
+            - name: Upload Plugin JSONs
+              run: |
+                  git config --global user.name "GitHub-Actions"
+                  git config --global user.email actions@github.com
+                  # On utilise le token de l'action pour cloner et push
+                  git clone https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git repo_update
+                  cd repo_update
+                  cp ../dist/release/*.json . || true
+                  git add .
+                  git commit -m "Update plugin lists [skip ci]" || echo "No changes to commit"
+                  git push
