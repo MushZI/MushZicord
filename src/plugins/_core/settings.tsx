@@ -226,7 +226,7 @@ export default definePlugin({
                 Icon: PluginsIcon
             }),
             buildEntry({
-                key: "equicord_themes",
+                key: "Mushcord_themes",
                 title: "Themes",
                 Component: ThemesTab,
                 Icon: PaintbrushIcon
@@ -239,13 +239,13 @@ export default definePlugin({
                 Icon: UpdaterIcon
             }),
             buildEntry({
-                key: "equicord_changelog",
+                key: "Mushcord_changelog",
                 title: "Changelog",
                 Component: ChangelogTab,
                 Icon: LogIcon,
             }),
             buildEntry({
-                key: "equicord_cloud",
+                key: "Mushcord_cloud",
                 title: "Cloud",
                 panelTitle: "Mushcord Cloud",
                 Component: CloudTab,
