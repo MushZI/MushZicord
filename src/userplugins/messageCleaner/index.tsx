@@ -5,7 +5,6 @@
  */
 
 import { definePluginSettings } from "@api/Settings";
-import { showNotification } from "@api/Notifications";
 import { findGroupChildrenByChildId, NavContextMenuPatchCallback } from "@api/ContextMenu";
 import definePlugin, { OptionType } from "@utils/types";
 import { ChannelStore, Menu, RestAPI, UserStore } from "@webpack/common";
@@ -40,11 +39,6 @@ const settings = definePluginSettings({
         maxValue: 100,
         stickToMarkers: false
     },
-    onlyOwnMessages: {
-        type: OptionType.BOOLEAN,
-        description: "Supprimer uniquement ses propres messages",
-        default: true
-    },
     showProgress: {
         type: OptionType.BOOLEAN,
         description: "Afficher la progression en temps réel",
@@ -53,12 +47,17 @@ const settings = definePluginSettings({
     debugMode: {
         type: OptionType.BOOLEAN,
         description: "Mode débogage (logs détaillés)",
-        default: false
+        default: true
     },
     skipSystemMessages: {
         type: OptionType.BOOLEAN,
         description: "Ignorer les messages système (rejoindre/quitter, etc.)",
         default: true
+    },
+    skipReplies: {
+        type: OptionType.BOOLEAN,
+        description: "Ignorer les réponses aux messages",
+        default: false
     },
     maxAge: {
         type: OptionType.SLIDER,
@@ -109,16 +108,36 @@ function debugLog(message: string) {
 // Fonction pour vérifier si un message peut être supprimé
 function canDeleteMessage(message: Message, currentUserId: string): boolean {
     try {
-        // Messages système
-        if (settings.store.skipSystemMessages && message.type !== 0) {
-            debugLog(`Message ${message.id} ignoré: message système (type: ${message.type})`);
+        // Afficher TOUS les détails du message pour debug
+        debugLog(`[VÉRIF] Message ${message.id}:`);
+        debugLog(`  - type: ${message.type} (19=REPLY, 0=DEFAULT)`);
+        debugLog(`  - author.id: ${message.author?.id}`);
+        debugLog(`  - messageReference: ${!!message.messageReference}`);
+        debugLog(`  - message_reference: ${!!(message as any).message_reference}`);
+        debugLog(`  - Toutes les clés: ${Object.keys(message).join(', ')}`);
+
+        // TOUJOURS: Vérifier que c'est notre propre message (PAS D'OPTION)
+        if (message.author?.id !== currentUserId) {
+            debugLog(`  ❌ Pas votre message (${message.author?.id} != ${currentUserId})`);
             return false;
         }
 
-        // Uniquement ses propres messages
-        if (settings.store.onlyOwnMessages && message.author?.id !== currentUserId) {
-            debugLog(`Message ${message.id} ignoré: pas votre message (auteur: ${message.author?.id})`);
+        // Messages système (SAUF type 19 qui est REPLY)
+        if (settings.store.skipSystemMessages && message.type !== 0 && message.type !== 19) {
+            debugLog(`  ❌ Message système (type ${message.type})`);
             return false;
+        }
+
+        // Détection des réponses - Type 19 OU présence de messageReference
+        const isReply = message.type === 19 || !!message.messageReference || !!(message as any).message_reference;
+        if (isReply) {
+            debugLog(`  ⚠️ DÉTECTÉ COMME RÉPONSE (type=${message.type}, ref=${!!message.messageReference})`);
+            if (settings.store.skipReplies) {
+                debugLog(`  ❌ Ignoré: skipReplies=true`);
+                return false;
+            } else {
+                debugLog(`  ✅ Sera supprimé: skipReplies=false`);
+            }
         }
 
         // Age maximum
@@ -133,13 +152,13 @@ function canDeleteMessage(message: Message, currentUserId: string): boolean {
             } else if (typeof message.timestamp === 'number') {
                 messageTime = message.timestamp;
             } else {
-                debugLog(`Message ${message.id} ignoré: timestamp invalide`);
+                debugLog(`  ❌ Timestamp invalide`);
                 return false;
             }
 
             // Vérifier si le timestamp est valide
             if (isNaN(messageTime) || messageTime <= 0) {
-                debugLog(`Message ${message.id} ignoré: timestamp invalide (${message.timestamp})`);
+                debugLog(`  ❌ Timestamp invalide (${message.timestamp})`);
                 return false;
             }
 
@@ -147,15 +166,15 @@ function canDeleteMessage(message: Message, currentUserId: string): boolean {
             const maxAgeMs = settings.store.maxAge * 24 * 60 * 60 * 1000;
 
             if (messageAge > maxAgeMs) {
-                debugLog(`Message ${message.id} ignoré: trop ancien (${Math.round(messageAge / (24 * 60 * 60 * 1000))} jours)`);
+                debugLog(`  ❌ Trop ancien (${Math.round(messageAge / (24 * 60 * 60 * 1000))} jours)`);
                 return false;
             }
         }
 
-        debugLog(`Message ${message.id} peut être supprimé`);
+        debugLog(`  ✅ PEUT ÊTRE SUPPRIMÉ`);
         return true;
     } catch (error) {
-        debugLog(`Erreur lors de la vérification du message ${message.id}: ${error}`);
+        debugLog(`  ❌ ERREUR: ${error}`);
         return false;
     }
 }
@@ -251,12 +270,6 @@ function updateProgress() {
             ? ` (~${Math.round(eta)}s restantes)`
             : ` (~${Math.round(eta / 60)}min restantes)`;
     }
-
-    showNotification({
-        title: `🧹 Nettoyage en cours (${percentage}%)`,
-        body: `Traités: ${processed}/${total} | Supprimés: ${deleted} | Échecs: ${failed} | Ignorés: ${skipped}\n⏱️ ${elapsedStr}${etaStr}`,
-        icon: undefined
-    });
 }
 
 // Fonction principale de nettoyage
@@ -268,11 +281,6 @@ async function cleanChannel(channelId: string) {
 
     if (isCleaningInProgress) {
         log("Un nettoyage est déjà en cours", "warn");
-        showNotification({
-            title: "⚠️ Nettoyage en cours",
-            body: "Un nettoyage est déjà en cours. Utilisez 'Arrêter le nettoyage' si nécessaire.",
-            icon: undefined
-        });
         return;
     }
 
@@ -300,12 +308,6 @@ async function cleanChannel(channelId: string) {
         let estimatedTotal = 0;
         let lastMessageId: string | undefined;
 
-        showNotification({
-            title: "🔍 Analyse en cours",
-            body: `Analyse du canal "${channelName}" pour estimer le nombre de messages...`,
-            icon: undefined
-        });
-
         // Compter approximativement les messages
         for (let i = 0; i < 10; i++) { // Maximum 10 batches pour l'estimation
             const messages = await getChannelMessages(channelId, lastMessageId);
@@ -320,11 +322,6 @@ async function cleanChannel(channelId: string) {
 
         if (estimatedTotal === 0) {
             log("Aucun message à supprimer trouvé", "warn");
-            showNotification({
-                title: "ℹ️ MessageCleaner",
-                body: "Aucun message à supprimer dans ce canal",
-                icon: undefined
-            });
             return;
         }
 
@@ -345,12 +342,6 @@ async function cleanChannel(channelId: string) {
 
         log(`🧹 Début du nettoyage de "${channelName}" - ${estimatedTotal} message(s) estimé(s)`);
 
-        showNotification({
-            title: "🧹 Nettoyage démarré",
-            body: `Suppression de ~${estimatedTotal} messages en cours...`,
-            icon: undefined
-        });
-
         lastMessageId = undefined;
         let totalProcessed = 0;
 
@@ -365,6 +356,12 @@ async function cleanChannel(channelId: string) {
                 }
 
                 debugLog(`Traitement de ${messages.length} messages...`);
+
+                // Afficher un aperçu des messages trouvés
+                for (let i = 0; i < Math.min(3, messages.length); i++) {
+                    const msg = messages[i];
+                    debugLog(`  [${i}] ID: ${msg.id}, Type: ${msg.type}, Author: ${msg.author?.id}, Ref: ${(msg as any).messageReference ? 'OUI' : 'NON'}`);
+                }
 
                 const validMessages = messages.filter(msg => canDeleteMessage(msg, currentUserId));
                 debugLog(`${validMessages.length} messages valides sur ${messages.length}`);
@@ -465,31 +462,9 @@ async function cleanChannel(channelId: string) {
 • Taux de succès: ${successRate}%
 • Temps moyen/message: ${avgTimePerMessage}ms`);
 
-        const title = shouldStopCleaning ? "⏹️ Nettoyage arrêté" : "✅ Nettoyage terminé";
-        let body = failed > 0
-            ? `${deleted} supprimés, ${failed} échecs, ${skipped} ignorés`
-            : `${deleted} messages supprimés avec succès`;
-
-        // Ajouter les stats de performance si le nettoyage a duré plus de 10 secondes
-        if (totalTime > 10000) {
-            body += `\n⏱️ ${totalTimeStr} (${successRate}% succès)`;
-        }
-
-        showNotification({
-            title,
-            body,
-            icon: undefined
-        });
-
     } catch (error) {
         isCleaningInProgress = false;
         log(`❌ Erreur globale lors du nettoyage: ${error}`, "error");
-
-        showNotification({
-            title: "❌ MessageCleaner - Erreur",
-            body: "Une erreur est survenue lors du nettoyage",
-            icon: undefined
-        });
     }
 }
 
@@ -498,17 +473,12 @@ function stopCleaning() {
     if (isCleaningInProgress) {
         shouldStopCleaning = true;
         log("⏹️ Arrêt du nettoyage demandé");
-
-        showNotification({
-            title: "⏹️ Arrêt en cours",
-            body: "Le nettoyage va s'arrêter après le message actuel",
-            icon: undefined
-        });
     }
 }
 
 // Patch du menu contextuel des canaux
-const ChannelContextMenuPatch: NavContextMenuPatchCallback = (children, { channel }: { channel: Channel; }) => {
+const ChannelContextMenuPatch: NavContextMenuPatchCallback = (children, ctx: { channel?: Channel; } = {}) => {
+    const { channel } = ctx;
     if (!channel) return;
 
     const group = findGroupChildrenByChildId("mark-channel-read", children) ?? children;
@@ -596,15 +566,9 @@ export default definePlugin({
         debugLog(`Configuration:
 • Délai: ${settings.store.delayBetweenDeletes}ms
 • Batch: ${settings.store.batchSize}
-• Propres messages: ${settings.store.onlyOwnMessages}
+• Ignorer réponses: ${settings.store.skipReplies}
 • Age max: ${settings.store.maxAge} jours
 • Mode debug: ${settings.store.debugMode}`);
-
-        showNotification({
-            title: "🧹 MessageCleaner activé",
-            body: "Clic droit sur un canal pour nettoyer les messages",
-            icon: undefined
-        });
     },
 
     stop() {
@@ -614,11 +578,5 @@ export default definePlugin({
         if (isCleaningInProgress) {
             shouldStopCleaning = true;
         }
-
-        showNotification({
-            title: "🧹 MessageCleaner désactivé",
-            body: "Plugin arrêté",
-            icon: undefined
-        });
     }
-}); 
+});
