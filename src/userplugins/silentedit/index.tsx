@@ -1,41 +1,30 @@
-// @ts-nocheck
-/**
- * @name SilentEdit
- * @description "Silently" edit a message without showing the edit tag and bypass Vencord's message logger.
- * @author Aurick
- * @version 1.0.1
- */
-
 import { addMessagePopoverButton as addButton, removeMessagePopoverButton as removeButton } from "@api/MessagePopover";
 import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
-import { findByProps } from "@webpack";
-import { ChannelStore, UserStore, React } from "@webpack/common";
+import { ChannelStore, Constants, RestAPI, UserStore } from "@webpack/common";
+import { findByPropsLazy } from "@webpack";
 
-// API 2026 - Récupération sécurisée des modules de communication
-const RestAPI = findByProps("post", "put", "del");
-const Constants = findByProps("Endpoints", "Status");
-const MessageActions = findByProps("editMessage", "startEditMessage");
+const MessageActions = findByPropsLazy("deleteMessage", "startEditMessage");
 
 const settings = definePluginSettings({
     deleteOriginalMessage: {
         type: OptionType.BOOLEAN,
-        description: "Delete the original server-side message after silent edit.",
+        description: "Delete the original server-side message after silent edit. If disabled, the original message will reappear after client reload.",
         default: true
     },
     deleteDelay: {
         type: OptionType.NUMBER,
-        description: "Delay (ms) before deleting the original message.",
+        description: "Delay (in milliseconds) before deleting the original message if enabled.",
         default: 500
     },
     suppressNotifications: {
         type: OptionType.BOOLEAN,
-        description: "Recommended for DMs to prevent pinging.",
+        description: "Recommended for use in DMs to prevent pinging users.",
         default: false
     },
     accentColor: {
         type: OptionType.STRING,
-        description: "Accent color for the icon (hex).",
+        description: "Accent color for the Silent Edit icon (hex code).",
         default: "#ed4245"
     }
 });
@@ -79,35 +68,28 @@ function deleteMessage(channelId: string, messageId: string) {
 
 export default definePlugin({
     name: "SilentEdit",
-    description: "Edit a message without the (edited) tag by sending a new one and deleting the old one.",
-    authors: [{ name: "Aurick", id: 1348025017233047634n }, { name: "mushzi", id: 449282863582412850n }],
+    description: "\"Silently\" edit a message without showing the edit tag and bypass Vencord's message logger.",
+    authors: [{ name: "Aurick", id: 1348025017233047634n }],
     dependencies: ["MessagePopoverAPI"],
     settings,
 
     start() {
         addButton("SilentEdit", msg => {
-            // Uniquement nos propres messages
-            if (msg.author.id !== UserStore.getCurrentUser()?.id) return null;
+            if (msg.author.id !== UserStore.getCurrentUser().id) return null;
 
             const handleClick = async () => {
-                // Ouvre l'interface de modification Discord
                 MessageActions.startEditMessage(msg.channel_id, msg.id, msg.content);
 
-                // Sauvegarde de la fonction originale
                 const originalEditMessage = MessageActions.editMessage;
 
-                // On "détourne" temporairement la fonction d'envoi de modification
                 MessageActions.editMessage = async function(channelId: string, messageId: string, content: any) {
-                    // On remet la fonction originale immédiatement après l'interception
                     MessageActions.editMessage = originalEditMessage;
 
-                    // Si ce n'est pas le message qu'on veut éditer silencieusement, on laisse faire normalement
                     if (messageId !== msg.id) {
                         return originalEditMessage.apply(this, arguments);
                     }
 
                     try {
-                        // On envoie le nouveau message à la place de l'édit
                         await sendMessage(
                             content.content,
                             msg.id,
@@ -118,12 +100,11 @@ export default definePlugin({
 
                         await sleep(settings.store.deleteDelay);
 
-                        // On supprime l'original si l'option est active
                         if (settings.store.deleteOriginalMessage) {
                             await deleteMessage(channelId, messageId);
                         }
                     } catch (error) {
-                        console.error("[SilentEdit] API Error:", error);
+                        console.error("[SilentEdit] Error:", error);
                     }
                 };
             };

@@ -35,11 +35,11 @@ function FakeDeafenIcon({ className }: { className?: string }) {
 }
 
 // --- MENU CLIC DROIT ---
-function GhostContextMenu({ onClose }: { onClose: () => void }) {
+function GhostContextMenu() {
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
     return (
-        <Menu.Menu navId="fake-voice-menu" aria-label="Configuration Fake Voice" onClose={onClose}>
+        <Menu.Menu navId="fake-voice-menu" aria-label="Configuration Fake Voice">
             <Menu.MenuGroup label="Options du Fantôme">
                 <Menu.MenuCheckboxItem
                     id="opt-both"
@@ -90,11 +90,11 @@ function FakeDeafenUserButton({ iconForeground, nameplate }: UserAreaRenderProps
                 refreshVoiceState();
                 forceUpdate();
             }}
-            onContextMenu={(e) => ContextMenuApi.openContextMenu(e, (props) => <GhostContextMenu {...props} />)}
+            onContextMenu={(e) => ContextMenuApi.openContextMenu(e, () => <GhostContextMenu />)}
             tooltipText={isGhostActive ? "Désactiver Fake Voice" : "Activer Fake Voice (Droit: Config)"}
             icon={<FakeDeafenIcon className={iconForeground} />}
             plated={nameplate != null}
-            redGlow={isGhostActive}
+            style={{ color: isGhostActive ? "#ed4245" : "inherit" }}
         />
     );
 }
@@ -106,7 +106,6 @@ export default definePlugin({
     dependencies: ["CommandsAPI"],
 
     userAreaButton: {
-        icon: (props: { className?: string; }) => <FakeDeafenIcon {...props} />,
         render: FakeDeafenUserButton
     },
 

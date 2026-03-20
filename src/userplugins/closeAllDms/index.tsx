@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Vencord, a Discord client mod
  * Copyright (c) 2024 Vendicated and contributors
@@ -6,35 +5,43 @@
  */
 
 import { findGroupChildrenByChildId, NavContextMenuPatchCallback } from "@api/ContextMenu";
+import { Devs } from "@utils/constants";
 import definePlugin from "@utils/types";
-import { findByProps, findStore } from "@webpack";
-import { ChannelStore, FluxDispatcher, Toasts, Menu, React } from "@webpack/common";
+import { findByPropsLazy, findStoreLazy } from "@webpack";
+import { ChannelStore, FluxDispatcher, showToast, Toasts, Menu } from "@webpack/common";
+import { Channel } from "discord-types/general";
 
-// API 2026 - Accès direct aux actions de fermeture
-const ChannelActionCreators = findByProps("openPrivateChannel", "closePrivateChannel");
-const PrivateChannelSortStore = findStore("PrivateChannelSortStore");
+// Trouver ChannelActionCreators pour fermer les DMs
+const ChannelActionCreators = findByPropsLazy("openPrivateChannel", "closePrivateChannel");
 
-// Fonction pour fermer un DM avec rate limite (Logique intacte)
+// Utiliser PrivateChannelSortStore comme dans pinDms
+const PrivateChannelSortStore = findStoreLazy("PrivateChannelSortStore") as { getPrivateChannelIds: () => string[]; };
+
+// Fonction pour fermer un DM avec rate limite
 async function closeDMWithDelay(channelId: string, delay: number): Promise<void> {
     return new Promise((resolve) => {
         setTimeout(() => {
             try {
                 const channel = ChannelStore.getChannel(channelId);
 
-                // Type 1 = DM Privé (on ignore le type 3 = Groupe)
-                if (channel?.type === 1) {
+                // Vérifier que c'est un DM privé (type 1) et non un groupe (type 3)
+                if (channel && channel.type === 1) {
+                    // Utiliser ChannelActionCreators.closePrivateChannel si disponible
                     if (ChannelActionCreators?.closePrivateChannel) {
                         ChannelActionCreators.closePrivateChannel(channelId);
                     } else {
-                        // Fallback Flux
+                        // Fallback: utiliser FluxDispatcher
                         FluxDispatcher.dispatch({
                             type: "CHANNEL_DELETE",
-                            channel: { id: channelId, type: 1 }
+                            channel: {
+                                id: channelId,
+                                type: 1
+                            }
                         });
                     }
                 }
             } catch (err) {
-                console.error(`[CloseAllDms] Erreur DM ${channelId}:`, err);
+                console.error(`Erreur lors de la fermeture du DM ${channelId}:`, err);
             }
             resolve();
         }, delay);
@@ -43,47 +50,81 @@ async function closeDMWithDelay(channelId: string, delay: number): Promise<void>
 
 async function closeAllDMs() {
     try {
-        const privateChannelIds = PrivateChannelSortStore?.getPrivateChannelIds?.() || [];
-        const dmsToClose = privateChannelIds.filter(id => {
-            const chan = ChannelStore.getChannel(id);
-            return chan?.type === 1;
+        // Obtenir tous les canaux privés via PrivateChannelSortStore
+        const privateChannelIds = PrivateChannelSortStore.getPrivateChannelIds();
+
+        let closedCount = 0;
+        const dmsToClose: string[] = [];
+
+        // Filtrer les DMs à fermer (seulement les DMs privés, pas les groupes)
+        privateChannelIds.forEach((channelId: string) => {
+            const channel = ChannelStore.getChannel(channelId);
+
+            // Vérifier que c'est un DM privé (type 1) et non un groupe (type 3)
+            if (channel && channel.type === 1) {
+                dmsToClose.push(channelId);
+            }
         });
 
         if (dmsToClose.length === 0) {
-            Toasts.show({ message: "ℹ️ Aucun DM privé à fermer", type: Toasts.Type.MESSAGE });
+            showToast(Toasts.Type.MESSAGE, "ℹ️ Aucun DM à fermer");
             return;
         }
 
-        // Exécution avec le délai de 50ms par DM défini dans ton code original
+        // Fermer les DMs avec une rate limite de 50ms
         for (let i = 0; i < dmsToClose.length; i++) {
-            await closeDMWithDelay(dmsToClose[i], i * 50);
+            await closeDMWithDelay(dmsToClose[i], i * 50); // 50ms de délai entre chaque fermeture
+            closedCount++;
         }
 
-        Toasts.show({ 
-            message: `✅ ${dmsToClose.length} DM(s) fermés (50ms rate-limit)`, 
-            type: Toasts.Type.SUCCESS 
-        });
+        // Notification de succès
+        showToast(Toasts.Type.SUCCESS, `✅ ${closedCount} DM(s) fermé(s) avec rate limite de 50ms`);
 
     } catch (error) {
-        Toasts.show({ message: "❌ Erreur lors de la fermeture", type: Toasts.Type.FAILURE });
+        console.error("Erreur lors de la fermeture des DMs:", error);
+        showToast(Toasts.Type.FAILURE, "❌ Erreur lors de la fermeture des DMs");
     }
 }
 
-// --- PATCHES DES MENUS CONTEXTUELS ---
-
-const CommonMenuPatch: NavContextMenuPatchCallback = (children, props) => {
-    // On cherche un point d'insertion logique selon le menu (fermer ou quitter)
-    const container = findGroupChildrenByChildId("leave-channel", children) 
-                   || findGroupChildrenByChildId("close-dm", children)
-                   || findGroupChildrenByChildId("privacy", children);
+// Menu contextuel pour les DMs de groupe
+const GroupDMContextMenuPatch: NavContextMenuPatchCallback = (children, props) => {
+    const container = findGroupChildrenByChildId("leave-channel", children);
 
     if (container) {
         container.push(
-            <Menu.MenuSeparator />,
             <Menu.MenuItem
-                id="vc-close-all-dms-action"
+                id="vc-close-all-dms"
                 label="Fermer tous les DMs"
-                color="danger"
+                action={closeAllDMs}
+            />
+        );
+    }
+};
+
+// Menu contextuel pour les utilisateurs
+const UserContextMenuPatch: NavContextMenuPatchCallback = (children, props) => {
+    const container = findGroupChildrenByChildId("close-dm", children);
+
+    if (container) {
+        container.push(
+            <Menu.MenuItem
+                id="vc-close-all-dms-user"
+                label="Fermer tous les DMs"
+                action={closeAllDMs}
+            />
+        );
+    }
+};
+
+// Menu contextuel pour les serveurs
+const ServerContextMenuPatch: NavContextMenuPatchCallback = (children, props) => {
+    const group = findGroupChildrenByChildId("privacy", children);
+
+    if (group) {
+        group.push(
+            <Menu.MenuItem
+                id="vc-close-all-dms-server"
+                label="Fermer tous les DMs"
                 action={closeAllDMs}
             />
         );
@@ -92,12 +133,12 @@ const CommonMenuPatch: NavContextMenuPatchCallback = (children, props) => {
 
 export default definePlugin({
     name: "CloseAllDms",
-    description: "Ferme tous les DMs privés d'un seul clic avec rate limite de 50ms (préserve les groupes).",
-    authors: [{ name: "mushzi", id: 449282863582412850n }],
+    description: "Ferme tous les DMs privés d'un seul clic avec rate limite de 50ms (préserve les groupes)",
+    authors: [Devs.BigDuck],
 
     contextMenus: {
-        "gdm-context": CommonMenuPatch,
-        "user-context": CommonMenuPatch,
-        "guild-context": CommonMenuPatch
+        "gdm-context": GroupDMContextMenuPatch,
+        "user-context": UserContextMenuPatch,
+        "guild-context": ServerContextMenuPatch
     }
 });
