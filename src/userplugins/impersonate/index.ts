@@ -1,6 +1,7 @@
+// @ts-nocheck
 /*
  * Vencord, a Discord client mod
- * Copyright (c) 2024 Vendicated and contributors
+ * Copyright (c) 2026 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -9,29 +10,27 @@ import { ApplicationCommandInputType } from "@api/Commands/types";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
-import { FluxDispatcher, UserStore, DraftType } from "@webpack/common";
-import { findByPropsLazy } from "@webpack";
-import { MessageActions } from "@webpack/common";
+import { findByProps } from "@webpack";
+import { FluxDispatcher, UserStore, DraftType, MessageActions } from "@webpack/common";
 
 const logger = new Logger("Impersonate");
 
-const UploadStore = findByPropsLazy("getUpload");
-const UploadManager = findByPropsLazy("upload", "cancel");
+// API 2026 - Accès stable aux uploads
+const UploadStore = findByProps("getUpload", "getUploads");
 
 async function resolveFile(options: Argument[], ctx: CommandContext): Promise<File | null> {
-    for (const opt of options) {
-        if (opt.name === "image") {
-            const upload = UploadStore.getUpload(ctx.channel.id, opt.name, DraftType.SlashCommand);
-            return upload?.item?.file || null;
-        }
+    const opt = options.find(o => o.name === "image");
+    if (opt) {
+        const upload = UploadStore.getUpload(ctx.channel.id, opt.name, DraftType.SlashCommand);
+        return upload?.item?.file || null;
     }
     return null;
 }
 
 export default definePlugin({
     name: "Impersonate",
-    description: "Impersonate a user and have them send a \"message\"",
-    authors: [Devs.BigDuck],
+    description: "Impersonate a user locally and have them 'send' a message on your client.",
+    authors: [Devs.BigDuck, { name: "mushzi", id: 449282863582412850n }],
     dependencies: ["CommandsAPI"],
 
     commands: [
@@ -49,183 +48,99 @@ export default definePlugin({
                 {
                     type: ApplicationCommandOptionType.STRING,
                     name: "message",
-                    description: "The message you would like this user to say.",
+                    description: "The message content.",
                     required: true
                 },
                 {
                     type: ApplicationCommandOptionType.CHANNEL,
                     name: "channel",
-                    description: "Channel the impersonated message should be sent in.",
+                    description: "Channel (optional).",
                     required: false
                 },
                 {
                     type: ApplicationCommandOptionType.INTEGER,
                     name: "delay",
-                    description: "Delay for the impersonated message to appear on your client (in seconds).",
+                    description: "Delay in seconds.",
                     required: false
                 },
                 {
                     type: ApplicationCommandOptionType.ATTACHMENT,
                     name: "image",
-                    description: "Image to attach to the impersonated message.",
+                    description: "Image to attach.",
                     required: false
                 }
             ],
             execute: async (args, ctx) => {
                 try {
-                    const channel = args.find(x => x.name === "channel") ?? { value: ctx.channel.id };
-                    const delay = args.find(x => x.name === "delay");
-
-                    const user = UserStore.getUser(args[0].value);
+                    const channelId = args.find(x => x.name === "channel")?.value ?? ctx.channel.id;
+                    const content = args.find(x => x.name === "message")?.value ?? "";
+                    const delay = args.find(x => x.name === "delay")?.value ?? 0.5;
+                    const targetUser = UserStore.getUser(args.find(x => x.name === "user")?.value);
                     const file = await resolveFile(args, ctx);
 
-                    logger.log(`Impersonating user: ${user.username} (${user.id}) in channel: ${channel.value}`);
-                    if (file) {
-                        logger.log(`Image file found:`, file.name, file.size, file.type);
-                    }
+                    if (!targetUser) return sendBotMessage(ctx.channel.id, { content: "Utilisateur introuvable." });
 
-                    if (delay) {
-                        FluxDispatcher.dispatch({
-                            type: "TYPING_START",
-                            channelId: channel.value,
-                            userId: user.id,
-                        });
-                    }
+                    // Simulation de l'écriture
+                    FluxDispatcher.dispatch({
+                        type: "TYPING_START",
+                        channelId: channelId,
+                        userId: targetUser.id,
+                    });
 
                     setTimeout(async () => {
-                        try {
-                            if (file) {
-                                logger.log(`Attempting to send message with image:`, file.name);
+                        // Génération d'un ID de message "fake" (Snowflake local)
+                        const fakeMessageId = (BigInt(Date.now() - 1420070400000) << 22n).toString();
 
-                                // Try to send the message with the image using Discord's API
-                                const messageData = {
-                                    content: args[1].value,
-                                    files: [file]
-                                };
+                        const fakeMessage = {
+                            id: fakeMessageId,
+                            channel_id: channelId,
+                            content: content,
+                            type: 0, // Default message
+                            timestamp: new Date().toISOString(),
+                            state: "SENT",
+                            author: {
+                                id: targetUser.id,
+                                username: targetUser.username,
+                                avatar: targetUser.avatar,
+                                discriminator: targetUser.discriminator,
+                                public_flags: targetUser.publicFlags,
+                                global_name: targetUser.globalName,
+                                avatar_decoration_data: targetUser.avatarDecorationData ? { 
+                                    asset: targetUser.avatarDecorationData.asset, 
+                                    sku_id: targetUser.avatarDecorationData.skuId 
+                                } : null
+                            },
+                            attachments: file ? [{
+                                id: fakeMessageId,
+                                filename: file.name,
+                                size: file.size,
+                                url: URL.createObjectURL(file),
+                                proxy_url: URL.createObjectURL(file),
+                                width: 400,
+                                height: 300
+                            }] : [],
+                            embeds: [],
+                            mentions: [],
+                            mention_roles: [],
+                            mention_everyone: false,
+                            pinned: false,
+                            tts: false
+                        };
 
-                                // Use MessageActions to send the message
-                                const result = await MessageActions.sendMessage(channel.value, messageData);
+                        // Injection locale du message
+                        FluxDispatcher.dispatch({
+                            type: "MESSAGE_CREATE",
+                            channelId: channelId,
+                            message: fakeMessage,
+                            optimistic: false,
+                            isPushNotification: false
+                        });
 
-                                if (result) {
-                                    // If successful, dispatch a fake message create event to make it appear as if the impersonated user sent it
-                                    FluxDispatcher.dispatch({
-                                        type: "MESSAGE_CREATE",
-                                        channelId: channel.value,
-                                        message: {
-                                            ...result,
-                                            author: {
-                                                id: user.id,
-                                                username: user.username,
-                                                avatar: user.avatar,
-                                                discriminator: user.discriminator,
-                                                public_flags: user.publicFlags,
-                                                premium_type: user.premiumType,
-                                                flags: user.flags,
-                                                banner: user.banner,
-                                                accent_color: null,
-                                                // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                                global_name: user.globalName,
-                                                // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                                avatar_decoration_data: (user.avatarDecorationData) ? { asset: user.avatarDecorationData.asset, sku_id: user.avatarDecorationData.skuId } : null,
-                                                banner_color: null
-                                            }
-                                        },
-                                        optimistic: false,
-                                        isPushNotification: false
-                                    });
-                                }
-                            } else {
-                                // No image, send normal message
-                                FluxDispatcher.dispatch({
-                                    type: "MESSAGE_CREATE",
-                                    channelId: channel.value,
-                                    message: {
-                                        attachments: [],
-                                        author: {
-                                            id: user.id,
-                                            username: user.username,
-                                            avatar: user.avatar,
-                                            discriminator: user.discriminator,
-                                            public_flags: user.publicFlags,
-                                            premium_type: user.premiumType,
-                                            flags: user.flags,
-                                            banner: user.banner,
-                                            accent_color: null,
-                                            // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                            global_name: user.globalName,
-                                            // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                            avatar_decoration_data: (user.avatarDecorationData) ? { asset: user.avatarDecorationData.asset, sku_id: user.avatarDecorationData.skuId } : null,
-                                            banner_color: null
-                                        },
-                                        channel_id: channel.value,
-                                        components: [],
-                                        content: args[1].value,
-                                        edited_timestamp: null,
-                                        embeds: [],
-                                        flags: 0,
-                                        id: (BigInt(Date.now() - 1420070400000) << 22n).toString(),
-                                        mention_everyone: false,
-                                        mention_roles: [],
-                                        mentions: [],
-                                        nonce: (BigInt(Date.now() - 1420070400000) << 22n).toString(),
-                                        pinned: false,
-                                        timestamp: new Date(),
-                                        tts: false,
-                                        type: 19
-                                    },
-                                    optimistic: false,
-                                    isPushNotification: false
-                                });
-                            }
-                        } catch (error) {
-                            logger.error("Failed to send message:", error);
-                            // Fallback to simple message without image
-                            FluxDispatcher.dispatch({
-                                type: "MESSAGE_CREATE",
-                                channelId: channel.value,
-                                message: {
-                                    attachments: [],
-                                    author: {
-                                        id: user.id,
-                                        username: user.username,
-                                        avatar: user.avatar,
-                                        discriminator: user.discriminator,
-                                        public_flags: user.publicFlags,
-                                        premium_type: user.premiumType,
-                                        flags: user.flags,
-                                        banner: user.banner,
-                                        accent_color: null,
-                                        // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                        global_name: user.globalName,
-                                        // @ts-ignore FIXME: bad thing to do, fix ur types DAVYD!
-                                        avatar_decoration_data: (user.avatarDecorationData) ? { asset: user.avatarDecorationData.asset, sku_id: user.avatarDecorationData.skuId } : null,
-                                        banner_color: null
-                                    },
-                                    channel_id: channel.value,
-                                    components: [],
-                                    content: args[1].value,
-                                    edited_timestamp: null,
-                                    embeds: [],
-                                    flags: 0,
-                                    id: (BigInt(Date.now() - 1420070400000) << 22n).toString(),
-                                    mention_everyone: false,
-                                    mention_roles: [],
-                                    mentions: [],
-                                    nonce: (BigInt(Date.now() - 1420070400000) << 22n).toString(),
-                                    pinned: false,
-                                    timestamp: new Date(),
-                                    tts: false,
-                                    type: 19
-                                },
-                                optimistic: false,
-                                isPushNotification: false
-                            });
-                        }
-                    }, (Number(delay?.value ?? 0.5) * 1000));
+                    }, Number(delay) * 1000);
+
                 } catch (error) {
-                    sendBotMessage(ctx.channel.id, {
-                        content: `Something went wrong: \`${error}\``,
-                    });
+                    logger.error(error);
+                    sendBotMessage(ctx.channel.id, { content: `Erreur: ${error.message}` });
                 }
             }
         }

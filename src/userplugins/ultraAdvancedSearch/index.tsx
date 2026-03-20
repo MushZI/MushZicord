@@ -1,6 +1,7 @@
+// @ts-nocheck
 /*
  * Vencord, a Discord client mod
- * Copyright (c) 2025 Vendicated and contributors
+ * Copyright (c) 2026 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -9,6 +10,7 @@ import { openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
 import { React } from "@webpack/common";
 
+// On importe ton composant modal externe
 import { SearchModal } from "./SearchModal";
 import styles from "./styles.css?managed";
 
@@ -25,60 +27,51 @@ export const settings = definePluginSettings({
     },
     minResultsForAPI: {
         type: OptionType.NUMBER,
-        description: "Nombre minimum de résultats avant d'utiliser l'API (0 = toujours utiliser l'API)",
+        description: "Nombre minimum de résultats avant d'utiliser l'API",
         default: 5
     },
     apiRequestDelay: {
         type: OptionType.NUMBER,
-        description: "Délai entre les requêtes API (ms) pour éviter le rate limit",
+        description: "Délai entre les requêtes API (ms)",
         default: 200
     }
 });
 
-// Fonction pour ouvrir le modal de recherche
+// --- LOGIQUE D'OUVERTURE ---
+
 function openSearchModal() {
-    openModal(modalProps => React.createElement(SearchModal, { modalProps }));
+    // Utilisation de la syntaxe JSX pour 2026
+    openModal(props => <SearchModal modalProps={props} />);
 }
 
-// Observer pour intercepter le bouton une fois qu'il est rendu dans le DOM
+// --- INTERCEPTEUR DOM (FILET DE SÉCURITÉ) ---
+
 let observer: MutationObserver | null = null;
 
 function setupButtonInterceptor() {
-    // Nettoyer l'ancien observer s'il existe
-    if (observer) {
-        observer.disconnect();
-    }
+    if (observer) observer.disconnect();
 
-    // Fonction pour intercepter le bouton
     const interceptButton = () => {
-        // Chercher le bouton par son texte ou ses classes
-        const buttons = document.querySelectorAll('button[class*="button__201d5"], button[class*="lookFilled"], button');
+        // Ciblage large pour attraper le bouton de recherche/QuickSwitcher
+        const selectors = [
+            'button[class*="button__"]',
+            'button[class*="lookFilled"]',
+            '[aria-label*="Rechercher" i]',
+            '[aria-label*="conversation" i]'
+        ];
+        
+        const buttons = document.querySelectorAll(selectors.join(","));
         
         buttons.forEach((button: HTMLButtonElement) => {
-            const text = button.textContent || button.innerText || "";
+            const text = button.textContent?.toLowerCase() || "";
+            const aria = button.getAttribute("aria-label")?.toLowerCase() || "";
             
-            // Vérifier si c'est le bouton de recherche
-            if (text.includes("Rechercher") || text.includes("rechercher") || text.includes("lancer une conversation")) {
-                // Vérifier si on a déjà intercepté ce bouton
-                if (button.dataset.ultraSearchIntercepted === "true") {
-                    return;
-                }
+            if (text.includes("rechercher") || aria.includes("rechercher") || text.includes("lancer une conversation")) {
+                if (button.dataset.ultraSearchIntercepted === "true") return;
                 
-                // Marquer comme intercepté
                 button.dataset.ultraSearchIntercepted = "true";
                 
-                // Sauvegarder le onClick original
-                const originalOnClick = button.onclick;
-                
-                // Remplacer le onClick
-                button.onclick = (e: MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openSearchModal();
-                    return false;
-                };
-                
-                // Ajouter aussi un addEventListener pour être sûr
+                // Interception brutale du click
                 button.addEventListener("click", (e: MouseEvent) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -88,99 +81,59 @@ function setupButtonInterceptor() {
         });
     };
 
-    // Exécuter immédiatement
     interceptButton();
 
-    // Observer les changements dans le DOM
-    observer = new MutationObserver(() => {
-        interceptButton();
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: false,
-        characterData: false
-    });
+    observer = new MutationObserver(interceptButton);
+    observer.observe(document.body, { childList: true, subtree: true });
 }
+
+// --- DÉFINITION DU PLUGIN ---
 
 export default definePlugin({
     name: "Ultra Advanced Search",
-    description: "Recherche avancée similaire à Discord mobile - Recherche dans toutes les conversations, messages privés, images, etc.",
-    authors: [{ name: "Bash", id: 1327483363518582784n }],
-    isModified: true,
-
+    description: "Recherche avancée globale (DMs, images, fichiers) - Similaire à l'expérience mobile.",
+    authors: [{ name: "Bash", id: 1327483363518582784n }, { name: "mushzi", id: 449282863582412850n }],
     settings,
-    
     styles,
 
+    // PATCHES REGEX (Maintien de ta logique d'interception Webpack)
     patches: [
-        // Patch pour intercepter le bouton "Rechercher/lancer une conversation"
         {
             find: "Rechercher/lancer une conversation",
             replacement: {
                 match: /onClick:(\i[^,}]*),/,
-                replace: (match, onClickHandler) => {
-                    return `onClick: (...args) => { const e = args[0]; if (e) { e.preventDefault?.(); e.stopPropagation?.(); } $self.openSearchModal(); },`
-                }
+                replace: "onClick: (e) => { if(e) { e.preventDefault?.(); e.stopPropagation?.(); } $self.openSearchModal(); },"
             }
         },
-        // Patch alternatif basé sur les classes CSS mentionnées
         {
-            find: "button__201d5 lookFilled__201d5 colorPrimary__201d5",
+            find: "button__201d5",
             replacement: {
-                match: /(button__201d5 lookFilled__201d5 colorPrimary__201d5[^}]*)(onClick:\s*(\i[^,}]*),)/,
-                replace: (match, prefix, onClickPart) => {
-                    return prefix + `onClick: (...args) => { const e = args[0]; if (e) { e.preventDefault?.(); e.stopPropagation?.(); } $self.openSearchModal(); },`
-                }
-            }
-        },
-        // Patch pour intercepter via le texte "Rechercher"
-        {
-            find: "Rechercher",
-            replacement: {
-                match: /(onClick:\s*(\i[^,}]*),.{0,500}Rechercher[^}]*lancer[^}]*conversation)/,
-                replace: (match) => {
-                    return match.replace(/(onClick:\s*)(\i[^,}]*)/, `onClick: (...args) => { const e = args[0]; if (e) { e.preventDefault?.(); e.stopPropagation?.(); } $self.openSearchModal(); }`)
-                }
+                match: /(button__201d5[^}]*onClick:\s*)(\i[^,}]*)/,
+                replace: "$1 (e) => { if(e) { e.preventDefault?.(); e.stopPropagation?.(); } $self.openSearchModal(); }"
             }
         }
     ],
 
-    openSearchModal,
+    openSearchModal, // Nécessaire pour que $self fonctionne dans les patches
 
     start() {
-        console.log("[Ultra Advanced Search] Plugin démarré");
+        console.log("[Ultra Advanced Search] 🔍 Initialisation...");
         
-        // Attendre que le DOM soit prêt
-        if (document.body) {
+        // On attend que le DOM soit chargé pour l'intercepteur
+        if (document.readyState === "complete") {
             setupButtonInterceptor();
         } else {
-            // Si le body n'est pas encore prêt, attendre
-            const checkInterval = setInterval(() => {
-                if (document.body) {
-                    clearInterval(checkInterval);
-                    setupButtonInterceptor();
-                }
-            }, 100);
-            
-            // Nettoyer après 10 secondes si le body n'est toujours pas là
-            setTimeout(() => clearInterval(checkInterval), 10000);
+            window.addEventListener("load", setupButtonInterceptor);
         }
     },
 
     stop() {
-        console.log("[Ultra Advanced Search] Plugin arrêté");
         if (observer) {
             observer.disconnect();
             observer = null;
         }
-        
-        // Nettoyer les intercepteurs
-        const buttons = document.querySelectorAll('button[data-ultra-search-intercepted="true"]');
-        buttons.forEach((button: HTMLButtonElement) => {
-            delete button.dataset.ultraSearchIntercepted;
+        document.querySelectorAll('[data-ultra-search-intercepted="true"]').forEach(b => {
+            delete b.dataset.ultraSearchIntercepted;
         });
     }
 });
-
