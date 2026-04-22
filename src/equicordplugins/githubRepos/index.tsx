@@ -33,44 +33,23 @@ export const settings = definePluginSettings({
         description: "Show repository language",
         default: true
     },
-    showRepositoryTab: {
-        type: OptionType.BOOLEAN,
-        description: "Show repositories tab in profile modal (hides button in connections when enabled)",
-        default: true
-    },
 });
 
 export default definePlugin({
     name: "GitHubRepos",
     description: "Displays a user's public GitHub repositories in their profile",
+    dependencies: ["ProfileCollectionsAPI"],
+    tags: ["Appearance"],
     authors: [EquicordDevs.talhakf, EquicordDevs.Panniku, EquicordDevs.benjii],
     settings,
 
     patches: [
-        // User Popout
-        {
-            find: /onOpenUserProfileModal:\i\}\),\i/,
-            replacement: {
-                match: /user:\i,widgets:.{0,100}?\}\),/,
-                replace: "$&$self.ProfileRepositoriesPopout(arguments[0]),"
-            }
-        },
-        // User Profile Modal v2
-        {
-            find: ".MODAL_V2,onClose:",
-            replacement: {
-                match: /displayProfile:(\i).*?connections:\i.{0,25}\i.\i\}\)\}\)/,
-                replace: "$&,$self.ProfileRepositoriesPopout({ user: arguments[0].user, displayProfile: $1 }),",
-                predicate: () => !settings.store.showRepositoryTab,
-            }
-        },
         // User Profile Modal v2 tab bar
         {
             find: "#{intl::USER_PROFILE_ACTIVITY}",
             replacement: {
                 match: /\.MUTUAL_GUILDS\}\)\)(?=,(\i))/,
                 replace: '$&,$1.push({text:"GitHub",section:"GITHUB"})',
-                predicate: () => settings.store.showRepositoryTab,
             }
         },
         // User Profile Modal v2 tab content
@@ -78,24 +57,19 @@ export default definePlugin({
             find: ".WIDGETS?",
             replacement: {
                 match: /(\i)===\i\.\i\.WISHLIST/,
-                replace: '$1==="GITHUB"?$self.ProfileRepositoriesTab(arguments[0]):$&'
+                replace: '$1==="GITHUB"?$self.renderProfileRepositoriesTab(arguments[0]):$&',
             }
         }
     ],
-    ProfileRepositoriesPopout: ErrorBoundary.wrap((props: { user: User; displayProfile?: any; }) => {
+    renderProfileCollection: (props: { user: User; displayProfile?: any; }) => {
         return (
             <ProfilePopoutComponent
                 {...props}
                 id={props.user.id}
-                theme={getProfileThemeProps(props).theme}
             />
         );
     },
-        {
-            noop: true
-        }
-    ),
-    ProfileRepositoriesTab: ErrorBoundary.wrap((props: { user: User; displayProfile?: any; }) => {
+    renderProfileRepositoriesTab: ErrorBoundary.wrap((props: { user: User; displayProfile?: any; }) => {
         return (
             <ProfileTabComponent
                 {...props}
@@ -103,9 +77,5 @@ export default definePlugin({
                 theme={getProfileThemeProps(props).theme}
             />
         );
-    },
-        {
-            noop: true
-        }
-    )
+    }, { noop: true }),
 });

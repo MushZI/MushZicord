@@ -12,6 +12,7 @@ import { useForceUpdater } from "@utils/react";
 import { OptionType } from "@utils/types";
 import { React, Select, showToast, TextArea, TextInput, Toasts } from "@webpack/common";
 
+import { CORS_PROXY } from "./constants";
 import { ServiceType } from "./types";
 import { parseShareXConfig } from "./utils/sharex";
 
@@ -36,6 +37,11 @@ const litterboxOptions = [
     { label: "12 hours", value: "12h" },
     { label: "24 hours", value: "24h", default: true },
     { label: "72 hours", value: "72h" }
+];
+
+const embedProxyOptions = [
+    { label: "CORS Proxy", value: "cors", default: true },
+    { label: "discord.nfp.is", value: "nfp" }
 ];
 
 export const settings = definePluginSettings({
@@ -172,6 +178,12 @@ export const settings = definePluginSettings({
         default: false,
         hidden: true
     },
+    interceptDiscordUploadOnlyOverLimit: {
+        type: OptionType.BOOLEAN,
+        description: "Only intercept uploads that exceed Discord file size limit.",
+        default: true,
+        hidden: true
+    },
     gofileToken: {
         type: OptionType.STRING,
         description: "Optional GoFile API token",
@@ -190,10 +202,35 @@ export const settings = definePluginSettings({
         default: false,
         hidden: true
     },
+    embedProxyEnabled: {
+        type: OptionType.BOOLEAN,
+        description: "Proxy uploaded video links through an embed helper service.",
+        default: false,
+        hidden: true
+    },
+    embedProxyService: {
+        type: OptionType.SELECT,
+        description: "Embed helper service to wrap uploaded video links.",
+        options: embedProxyOptions,
+        default: "cors",
+        hidden: true
+    },
+    corsProxyUrl: {
+        type: OptionType.STRING,
+        description: "CORS proxy URL used for browser uploads",
+        default: CORS_PROXY,
+        hidden: true
+    },
     apngToGif: {
         type: OptionType.BOOLEAN,
         description: "Convert APNG uploads to GIF",
         default: false,
+        hidden: true
+    },
+    preserveOriginalFilename: {
+        type: OptionType.BOOLEAN,
+        description: "Preserve the original filename when uploading.",
+        default: true,
         hidden: true
     },
     autoCopy: {
@@ -476,10 +513,54 @@ export function SettingsComponent() {
                 />
             </SettingsSection>
 
+            <SettingsSection tag="label" name="Use Embed Proxy" description="Wrap uploaded video links with an embed proxy service for better Discord previews" inlineSetting>
+                <Switch
+                    checked={store.embedProxyEnabled}
+                    onChange={v => {
+                        store.embedProxyEnabled = v;
+                        update();
+                    }}
+                />
+            </SettingsSection>
+
+            {store.embedProxyEnabled && (
+                <SettingsSection name="Embed Proxy Service" description="Choose which embed proxy service to use for uploaded video links">
+                    <Select
+                        options={embedProxyOptions}
+                        isSelected={v => v === store.embedProxyService}
+                        select={v => {
+                            store.embedProxyService = v;
+                            update();
+                        }}
+                        serialize={v => v}
+                        placeholder="Select an embed proxy service"
+                    />
+                </SettingsSection>
+            )}
+
+            <SettingTextInput
+                name="CORS Proxy URL"
+                description="CORS proxy used for web uploads. Leave empty to use the default proxy"
+                value={store.corsProxyUrl || ""}
+                onChange={v => store.corsProxyUrl = v}
+                placeholder="https://your-cors-proxy.example.com"
+            />
+
+            <SettingsSection name="Default CORS Proxy Source" description="Source code for the default CORS proxy">
+                <a href="https://codeberg.org/key/corsproxy" target="_blank" rel="noreferrer">codeberg.org/key/corsproxy</a>
+            </SettingsSection>
+
             <SettingsSection tag="label" name="Convert APNG to GIF" description="Convert APNG files to GIF format" inlineSetting>
                 <Switch
                     checked={store.apngToGif}
                     onChange={v => store.apngToGif = v}
+                />
+            </SettingsSection>
+
+            <SettingsSection tag="label" name="Preserve Original Filename" description="Use the original filename instead of naming uploads as upload.ext" inlineSetting>
+                <Switch
+                    checked={Boolean((store as { preserveOriginalFilename?: boolean; }).preserveOriginalFilename)}
+                    onChange={v => (store as { preserveOriginalFilename?: boolean; }).preserveOriginalFilename = v}
                 />
             </SettingsSection>
 
@@ -515,6 +596,13 @@ export function SettingsComponent() {
                 <Switch
                     checked={Boolean((store as { interceptDiscordUpload?: boolean; }).interceptDiscordUpload)}
                     onChange={v => (store as { interceptDiscordUpload?: boolean; }).interceptDiscordUpload = v}
+                />
+            </SettingsSection>
+
+            <SettingsSection tag="label" name="Only Intercept Over Discord File Size Limit" description="Use FileUpload only for files larger than your current Discord upload limit" inlineSetting>
+                <Switch
+                    checked={store.interceptDiscordUploadOnlyOverLimit}
+                    onChange={v => store.interceptDiscordUploadOnlyOverLimit = v}
                 />
             </SettingsSection>
 

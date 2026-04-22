@@ -20,7 +20,7 @@ import { gitHashShort } from "@shared/vencordUserAgent";
 import { Devs } from "@utils/constants";
 import { isTruthy } from "@utils/guards";
 import definePlugin, { IconProps, OptionType } from "@utils/types";
-import { findByPropsLazy, waitFor } from "@webpack";
+import { waitFor } from "@webpack";
 import { React } from "@webpack/common";
 import type { ComponentType, PropsWithChildren, ReactNode } from "react";
 
@@ -110,18 +110,6 @@ const settings = definePluginSettings({
     }
 });
 
-const settingsSectionMap: [string, string][] = [
-    ["EquicordSettings", "equicord_main_panel"],
-    ["EquicordPlugins", "equicord_plugins_panel"],
-    ["EquicordThemes", "equicord_themes_panel"],
-    ["EquicordUpdater", "equicord_updater_panel"],
-    ["EquicordChangelog", "equicord_changelog_panel"],
-    ["EquicordCloud", "equicord_cloud_panel"],
-    ["EquicordBackupAndRestore", "equicord_backup_restore_panel"],
-    ["EquicordPatchHelper", "equicord_patch_helper_panel"],
-    ["EquibopSettings", "equicord_equibop_settings_panel"],
-];
-
 export default definePlugin({
     name: "Settings",
     description: "Adds Settings UI and debug info",
@@ -129,7 +117,6 @@ export default definePlugin({
     required: true,
 
     settings,
-    settingsSectionMap,
 
     patches: [
         {
@@ -147,13 +134,6 @@ export default definePlugin({
                     }
                 },
                 {
-                    match: /"text-xs\/normal".{0,300}?\[\(0,\i\.jsxs?\)\((.{1,10}),(\{[^{}}]+\{.{0,20}className:\i.\i,.+?\})\)," "/,
-                    replace: (m, component, props) => {
-                        props = props.replace(/children:\[.+\]/, "");
-                        return `${m},$self.makeInfoElements(${component},${props})`;
-                    }
-                },
-                {
                     match: /copyValue:\i\.join\(" "\)/g,
                     replace: "$& + $self.getInfoString()"
                 }
@@ -164,13 +144,6 @@ export default definePlugin({
             replacement: {
                 match: /(\i)\.buildLayout\(\)(?=\.map)/,
                 replace: "$self.buildLayout($1)"
-            }
-        },
-        {
-            find: "getWebUserSettingFromSection",
-            replacement: {
-                match: /new Map\(\[(?=\[.{0,10}\.ACCOUNT,.{0,10}\.ACCOUNT_PANEL)/,
-                replace: "new Map([...$self.getSettingsSectionMappings(),"
             }
         }
     ],
@@ -203,10 +176,6 @@ export default definePlugin({
         });
     },
 
-    getSettingsSectionMappings() {
-        return settingsSectionMap;
-    },
-
     buildLayout(originalLayoutBuilder: SettingsLayoutBuilder) {
         const layout = originalLayoutBuilder.buildLayout();
         if (originalLayoutBuilder.key !== "$Root") return layout;
@@ -218,14 +187,14 @@ export default definePlugin({
         const equicordEntries: SettingsLayoutNode[] = [
             buildEntry({
                 key: "equicord_main",
-                title: "Mushcord",
-                panelTitle: "Mushcord Settings",
+                title: "Equicord",
+                panelTitle: "Equicord Settings",
                 Component: VencordTab,
                 Icon: MainSettingsIcon
             }),
             buildEntry({
                 key: "equicord_plugins",
-                title: "MushPlugins",
+                title: "Plugins",
                 Component: PluginsTab,
                 Icon: PluginsIcon
             }),
@@ -251,7 +220,7 @@ export default definePlugin({
             buildEntry({
                 key: "equicord_cloud",
                 title: "Cloud",
-                panelTitle: "Mushcord Cloud",
+                panelTitle: "Equicord Cloud",
                 Component: CloudTab,
                 Icon: CloudIcon
             }),
@@ -273,7 +242,7 @@ export default definePlugin({
         const equicordSection: SettingsLayoutNode = {
             key: "equicord_section",
             type: LayoutTypes.SECTION,
-            useTitle: () => "Mushcord Settings",
+            useTitle: () => "Equicord Settings",
             buildLayout: () => equicordEntries
         };
 

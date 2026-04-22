@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { CORS_PROXY, toProxiedUrl } from "@equicordplugins/fileUpload/constants";
+import { normalizeCorsProxyUrl, toProxiedUrl } from "@equicordplugins/fileUpload/constants";
 import { settings } from "@equicordplugins/fileUpload/settings";
 import { serviceLabels, ServiceType, ShareXUploaderConfig, UploadResponse } from "@equicordplugins/fileUpload/types";
 import { copyToClipboard } from "@utils/clipboard";
@@ -26,16 +26,19 @@ const Native = IS_DISCORD_DESKTOP
 const logger = new Logger("FileUpload", "#7cb7ff");
 
 function toProxyUrl(url: string): string {
-    if (Native || url.startsWith(`${CORS_PROXY}?url=`)) {
+    const corsProxyUrl = normalizeCorsProxyUrl((settings.store as { corsProxyUrl?: string; }).corsProxyUrl);
+
+    if (Native || url.startsWith(`${corsProxyUrl}?url=`)) {
         return url;
     }
 
-    return toProxiedUrl(url);
+    return toProxiedUrl(url, corsProxyUrl);
 }
 
 let isUploading = false;
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "retrying" | "success" | "failed" | "cancelled";
+type EmbedProxyService = "cors" | "nfp";
 
 export interface UploadProgressState {
     phase: UploadPhase;
@@ -694,6 +697,41 @@ const EXE_BLOCKED_SERVICES = new Set<ServiceType>([
     ServiceType.ZEROX0
 ]);
 
+function getEmbedProxyService(): EmbedProxyService {
+    const service = settings.store.embedProxyService;
+    return service === "nfp" ? service : "cors";
+
+}
+
+function shouldProxyEmbedUrl(url: string): boolean {
+    const ext = getUrlExtension(url)?.toLowerCase();
+    if (!ext) {
+        return false;
+    }
+
+    return getMimeFromExtension(ext).startsWith("video/");
+}
+
+function applyEmbedProxy(url: string): string {
+    if (!settings.store.embedProxyEnabled) {
+        return url;
+    }
+
+    const service = getEmbedProxyService();
+    if (!shouldProxyEmbedUrl(url)) {
+        return url;
+    }
+
+    switch (service) {
+        case "cors":
+            return toProxyUrl(url);
+        case "nfp":
+            return `https://discord.nfp.is/?v=${encodeURIComponent(url)}`;
+        default:
+            return toProxyUrl(url);
+    }
+}
+
 function isExeFileName(fileName: string): boolean {
     return fileName.toLowerCase().endsWith(".exe");
 }
@@ -878,9 +916,24 @@ async function normalizeUploadBlob(blob: Blob, sourceUrl?: string): Promise<{ bl
     }
 
     const mimeType = getMimeFromExtension(ext);
+    const { preserveOriginalFilename } = settings.store;
+    let sourceFileName = "";
+    if (blob instanceof File && blob.name) {
+        sourceFileName = blob.name;
+    } else if (sourceUrl && URL.canParse(sourceUrl)) {
+        const segment = new URL(sourceUrl).pathname.split("/").pop();
+        if (segment) sourceFileName = decodeURIComponent(segment);
+    }
+
+    let filename = `upload.${ext}`;
+    if (preserveOriginalFilename && sourceFileName) {
+        const dotIndex = sourceFileName.lastIndexOf(".");
+        filename = `${sourceFileName.slice(0, dotIndex < 0 ? undefined : dotIndex)}.${ext}`;
+    }
+
     return {
         blob: new Blob([blob], { type: mimeType }),
-        filename: `upload.${ext}`
+        filename
     };
 }
 
@@ -889,7 +942,7 @@ async function uploadPreparedBlob(blob: Blob, sourceUrl?: string): Promise<void>
     const { blob: normalizedBlob, filename } = await normalizeUploadBlob(blob, sourceUrl);
     setUploadState({ fileName: filename, status: "File ready, starting upload...", percent: 4 });
     const uploadedUrl = await uploadWithFallbacks(normalizedBlob, filename, primary);
-    const finalUrl = finalizeUploadedUrl(uploadedUrl);
+    const finalUrl = applyEmbedProxy(finalizeUploadedUrl(uploadedUrl));
     await notifyUploadSuccess(finalUrl);
 }
 

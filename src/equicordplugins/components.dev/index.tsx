@@ -18,6 +18,7 @@ import ComponentsTab from "./components/ComponentsTab";
 export default definePlugin({
     name: "Components",
     description: "Adds a new tab to settings to browse Discord components.",
+    tags: ["Appearance", "Customisation", "Console", "Developers", "Organisation"],
     authors: [Devs.prism],
     dependencies: ["Settings"],
     startAt: StartAt.WebpackReady,
@@ -33,11 +34,8 @@ export default definePlugin({
             Component: ComponentsTab,
             Icon: ComponentsIcon
         });
-
-        SettingsPlugin.settingsSectionMap.push(["EquicordDiscordComponents", "equicord_components"]);
     },
     stop() {
         removeFromArray(SettingsPlugin.customEntries, e => e.key === "equicord_components");
-        removeFromArray(SettingsPlugin.settingsSectionMap, entry => entry[1] === "equicord_components");
     },
 });

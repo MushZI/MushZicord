@@ -6,7 +6,7 @@
 
 import { DataStore } from "@api/index";
 import { isPluginEnabled, plugins, startPlugin, stopPlugin } from "@api/PluginManager";
-import { SettingsStore } from "@api/Settings";
+import { Settings, SettingsStore } from "@api/Settings";
 import { getUserSettingLazy } from "@api/UserSettings";
 import { openPluginModal } from "@components/settings/tabs";
 import { toggleEnabled } from "@equicordplugins/equicordHelper/utils";
@@ -18,7 +18,6 @@ import { Guild } from "@vencord/discord-types";
 import { findByPropsLazy, findExportedComponentLazy, findStoreLazy } from "@webpack";
 import { Alerts, ChannelActionCreators, ChannelRouter, ChannelStore, ComponentDispatch, FluxDispatcher, GuildStore, IconUtils, MediaEngineStore, MessageStore, NavigationRouter, React, ReadStateStore, ReadStateUtils, SelectedChannelStore, SelectedGuildStore, SettingsRouter, StreamerModeStore, Toasts, useEffect, UserStore, VoiceActions } from "@webpack/common";
 import type { FC, ReactElement, ReactNode } from "react";
-import { Settings } from "Vencord";
 
 import commandPalette from ".";
 import {
@@ -30,7 +29,8 @@ import {
     type CustomCommandIconId,
     getCustomCommandIconById,
     isCustomCommandIconId,
-    resolveCustomCommandDefaultIconId } from "./customCommandIcons";
+    resolveCustomCommandDefaultIconId
+} from "./customCommandIcons";
 import {
     createExtensionsState,
     EXTENSIONS_CATALOG_CATEGORY_ID,
@@ -232,15 +232,6 @@ interface WindowWithDiscordNative extends Window {
     DiscordNative?: DiscordNativeLike;
 }
 
-interface ChannelClosePayloadLike {
-    channel?: unknown;
-    channel_id?: string;
-    recipients?: unknown;
-    rawRecipients?: unknown;
-    type?: unknown;
-    id?: unknown;
-}
-
 interface ChannelStoreAccessorMixins {
     getDMFromUserId?: (id: string) => string | null;
     getSortedPrivateChannels?: () => Array<string | { id?: string; channelId?: string; }>;
@@ -254,13 +245,6 @@ const CHATBAR_DATA_ATTRIBUTE = "data-vc-command-palette-id";
 const categories = new Map<string, CommandCategory>();
 const registry = new Map<string, CommandEntry>();
 
-const registryStore = createRegistryStore();
-const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
-const pinsStore = createPinsStore();
-const extensionsState = createExtensionsState(
-    id => refreshContextProvider(id),
-    () => registryStore.bumpRegistryVersion()
-);
 const StatusSetting = getUserSettingLazy<string>("status", "status");
 const COMMAND_PALETTE_PLUGIN_NAME = "CommandPalette";
 const logger = new Logger(COMMAND_PALETTE_PLUGIN_NAME);
@@ -1266,6 +1250,7 @@ function ensureSessionHooks() {
 }
 
 export function cleanupCommandPaletteRuntime() {
+    const registryStore = createRegistryStore();
     clearScheduledStatusReset(false);
     while (sessionCleanupCallbacks.length) {
         const callback = sessionCleanupCallbacks.pop();
@@ -1316,10 +1301,14 @@ export function getCategoryGroupLabel(categoryId?: string): string {
 }
 
 export function getRecentRank(commandId: string): number {
+    const registryStore = createRegistryStore();
+    const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
     return recentsStore.list().indexOf(commandId);
 }
 
 function refreshContextProvider(id: string) {
+    const pinsStore = createPinsStore();
+
     const record = contextProviders.get(id);
     if (!record) return;
 
@@ -1394,6 +1383,8 @@ type RemoveCommandOptions = {
 };
 
 function removeCommand(commandId: string, options?: RemoveCommandOptions) {
+    const registryStore = createRegistryStore();
+    const pinsStore = createPinsStore();
     const existing = registry.get(commandId);
     if (!existing) return;
 
@@ -1424,18 +1415,38 @@ export function getCommandById(commandId: string): CommandEntry | undefined {
 }
 
 export function listExtensions(): ExtensionDefinition[] {
+    const registryStore = createRegistryStore();
+    const extensionsState = createExtensionsState(
+        id => refreshContextProvider(id),
+        () => registryStore.bumpRegistryVersion()
+    );
     return extensionsState.listExtensions().map(extension => ({ ...extension }));
 }
 
 export function isExtensionInstalled(extensionId: string): boolean {
+    const registryStore = createRegistryStore();
+    const extensionsState = createExtensionsState(
+        id => refreshContextProvider(id),
+        () => registryStore.bumpRegistryVersion()
+    );
     return extensionsState.isInstalled(extensionId);
 }
 
 export async function installExtension(extensionId: string): Promise<boolean> {
+    const registryStore = createRegistryStore();
+    const extensionsState = createExtensionsState(
+        id => refreshContextProvider(id),
+        () => registryStore.bumpRegistryVersion()
+    );
     return extensionsState.install(extensionId);
 }
 
 export async function uninstallExtension(extensionId: string): Promise<boolean> {
+    const registryStore = createRegistryStore();
+    const extensionsState = createExtensionsState(
+        id => refreshContextProvider(id),
+        () => registryStore.bumpRegistryVersion()
+    );
     return extensionsState.uninstall(extensionId);
 }
 
@@ -1449,6 +1460,8 @@ function computeSearchText(entry: CommandEntry) {
 }
 
 function recordRecent(commandId: string) {
+    const registryStore = createRegistryStore();
+    const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
     void recentsStore.record(commandId);
 }
 
@@ -1458,6 +1471,8 @@ export function markCommandAsRecent(commandId: string) {
 }
 
 export function getRecentCommands(): CommandEntry[] {
+    const registryStore = createRegistryStore();
+    const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
     const results: CommandEntry[] = [];
     for (const id of recentsStore.list()) {
         const entry = registry.get(id);
@@ -1467,6 +1482,8 @@ export function getRecentCommands(): CommandEntry[] {
 }
 
 function getNewestRecentCommand(excludeId?: string): CommandEntry | undefined {
+    const registryStore = createRegistryStore();
+    const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
     const id = recentsStore.newest(excludeId);
     if (!id) return undefined;
     const entry = registry.get(id);
@@ -1475,6 +1492,7 @@ function getNewestRecentCommand(excludeId?: string): CommandEntry | undefined {
 }
 
 async function prunePinned() {
+    const pinsStore = createPinsStore();
     let changed = false;
     for (const id of pinsStore.values()) {
         if (!registry.has(id)) {
@@ -1487,8 +1505,6 @@ async function prunePinned() {
     }
     return changed;
 }
-
-void pinsStore.ready.then(() => pinsStore.emit());
 
 const BUILT_IN_COMMANDS: CommandEntry[] = [
     {
@@ -1534,6 +1550,7 @@ const settingsCommandsByRoute = new Map<string, typeof DISCORD_SETTINGS_COMMANDS
 let builtInsRegistered = false;
 
 export function registerCategory(category: CommandCategory) {
+    const registryStore = createRegistryStore();
     const parentId = category.parentId ?? null;
     const normalized = { ...category, parentId } satisfies CommandCategory;
     const existing = categories.get(category.id);
@@ -1575,6 +1592,8 @@ export function getCategoryPath(categoryId?: string): CommandCategory[] {
 }
 
 export function registerCommand(entry: CommandEntry) {
+    const registryStore = createRegistryStore();
+    const pinsStore = createPinsStore();
     const preservePin = pinsStore.has(entry.id);
     if (registry.has(entry.id)) {
         removeCommand(entry.id, preservePin ? { preservePin: true } : undefined);
@@ -1635,6 +1654,7 @@ export function registerCommand(entry: CommandEntry) {
 }
 
 export function listCommands(): CommandEntry[] {
+    const registryStore = createRegistryStore();
     const cached = registryStore.getCachedSortedCommands();
     if (cached) {
         return cached;
@@ -1646,6 +1666,7 @@ export function listCommands(): CommandEntry[] {
 }
 
 export function listCommandsByCategory(categoryId: string): CommandEntry[] {
+    const registryStore = createRegistryStore();
     const categoryCommandCache = registryStore.getCategoryCommandCache();
     const cached = categoryCommandCache.get(categoryId);
     if (cached) return cached;
@@ -1656,10 +1677,12 @@ export function listCommandsByCategory(categoryId: string): CommandEntry[] {
 }
 
 export function isCommandPinned(commandId: string): boolean {
+    const pinsStore = createPinsStore();
     return pinsStore.has(commandId);
 }
 
 export async function togglePinned(commandId: string): Promise<boolean | null> {
+    const pinsStore = createPinsStore();
     await pinsStore.ready;
     if (!commandId) return null;
 
@@ -1684,6 +1707,7 @@ export async function togglePinned(commandId: string): Promise<boolean | null> {
 }
 
 export function subscribePinned(listener: (pins: Set<string>) => void) {
+    const pinsStore = createPinsStore();
     return pinsStore.subscribe(listener);
 }
 
@@ -1708,6 +1732,7 @@ function collectCategoryTreeIds(rootId: string): Set<string> {
 }
 
 export function listCommandsInTree(categoryId: string): CommandEntry[] {
+    const registryStore = createRegistryStore();
     const treeCommandCache = registryStore.getTreeCommandCache();
     const cached = treeCommandCache.get(categoryId);
     if (cached) return cached;
@@ -1719,10 +1744,12 @@ export function listCommandsInTree(categoryId: string): CommandEntry[] {
 }
 
 export function getCommandSearchText(commandId: string): string {
+    const registryStore = createRegistryStore();
     return registryStore.getCommandSearchText(commandId);
 }
 
 export function getRegistryVersion(): number {
+    const registryStore = createRegistryStore();
     return registryStore.getRegistryVersion();
 }
 
@@ -1740,6 +1767,7 @@ export function getCommandTagIds(commandId: string): string[] {
 }
 
 export function subscribeRegistry(listener: (version: number) => void) {
+    const registryStore = createRegistryStore();
     return registryStore.subscribeRegistry(listener);
 }
 
@@ -1795,6 +1823,9 @@ export async function executeCommandAction(entry: CommandEntry, actionKey: strin
         ? entry.handler
         : resolvedAction?.action.handler;
     if (!action) return false;
+
+    const registryStore = createRegistryStore();
+    const recentsStore = createRecentsStore(() => registryStore.bumpRegistryVersion());
 
     try {
         await action();
@@ -3760,6 +3791,12 @@ function registerCustomizationCommands() {
 
 export function registerBuiltInCommands() {
     if (builtInsRegistered) return;
+    const registryStore = createRegistryStore();
+    const pinsStore = createPinsStore();
+    const extensionsState = createExtensionsState(
+        id => refreshContextProvider(id),
+        () => registryStore.bumpRegistryVersion()
+    );
 
     for (const category of BUILT_IN_CATEGORIES) {
         registerCategory(category);

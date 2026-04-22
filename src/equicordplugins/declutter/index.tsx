@@ -6,7 +6,7 @@
 
 import "./style.css";
 
-import { definePluginSettings, migratePluginSetting, migratePluginSettings } from "@api/Settings";
+import { definePluginSettings, migrateOldSettingToNewPlugin, migratePluginSetting, migratePluginSettings } from "@api/Settings";
 import { Divider } from "@components/Divider";
 import { HeadingSecondary } from "@components/Heading";
 import { Notice } from "@components/Notice";
@@ -15,6 +15,7 @@ import { Devs, EquicordDevs } from "@utils/index";
 import definePlugin, { OptionType } from "@utils/types";
 
 migratePluginSettings("Declutter", "BetterUserArea", "Anammox");
+migrateOldSettingToNewPlugin("Declutter", "removeClanTag", "GuildTagSettings", "hideTags");
 
 const migrationsAnammox = [
     ["dms", "removeShopAboveDM"],
@@ -140,24 +141,25 @@ function SectionSeparator(title: string) {
 export default definePlugin({
     name: "Declutter",
     description: "Cleans up Discord by removing non-essential UI elements like profile effects, shop tabs, boosts, and more.",
+    tags: ["Appearance", "Customisation"],
     authors: [EquicordDevs.Leon135, Devs.prism, Devs.Kyuuhachi],
     settings,
     patches: [
         {
             // Nameplate
-            find: "#{intl::AVATAR_MALLOW}",
+            find: ".MINI_PREVIEW,[",
             replacement: {
-                match: /function \i\(\i\)\{(?=.{0,25}skuId:)/,
-                replace: "$&return null;"
+                match: /function \i\((\i)\)\{(?=let\{nameplate:\i,hovered:\i,selected:\i,content:\i,placement:\i\}=)/,
+                replace: '$&if($1.placement!=="preview"&&$1.placement!=="mini_preview")return null;'
             },
             predicate: () => settings.store.removeNameplate,
         },
         {
             // Profile banner animation effect
-            find: "bannerAdjustment,noBorderRadius",
+            find: "bannerAdjustment,isHovering",
             replacement: {
-                match: /\i=\i=>\{(?=.{0,50}\.useReducedMotion\))/,
-                replace: "$&return null;"
+                match: /\i=(\i)=>\{(?=.{0,50}\.useReducedMotion\))/,
+                replace: "$&if(!$1.shopPreview)return null;"
             },
             predicate: () => settings.store.removeProfileEffect,
         },
